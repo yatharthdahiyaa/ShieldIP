@@ -287,9 +287,12 @@ def enforce_violation(violation_id: str, body: EnforceRequest):
 @app.get("/analytics/summary")
 def analytics_summary():
     try:
+        # Count assets from Firestore (source of truth)
+        total_assets = len(list(firestore_client.collection("assets").stream()))
+
+        # Count violations/enforcements from BigQuery
         query = f"""
         SELECT
-            (SELECT COUNT(*) FROM `{PROJECT_ID}.{BQ_DATASET}.assets`) AS total_assets,
             (SELECT COUNT(*) FROM `{PROJECT_ID}.{BQ_DATASET}.violations` WHERE is_latest = TRUE) AS total_violations,
             (SELECT COUNT(*) FROM `{PROJECT_ID}.{BQ_DATASET}.enforcement_log`) AS total_enforcements,
             (SELECT AVG(risk_score) FROM `{PROJECT_ID}.{BQ_DATASET}.violations` WHERE is_latest = TRUE AND risk_score IS NOT NULL) AS avg_risk_score,
@@ -299,7 +302,7 @@ def analytics_summary():
         result = bq_client.query(query).result()
         row = list(result)[0]
         summary = {
-            "total_assets": row.total_assets or 0,
+            "total_assets": total_assets,
             "total_violations": row.total_violations or 0,
             "total_enforcements": row.total_enforcements or 0,
             "avg_risk_score": round(float(row.avg_risk_score), 2) if row.avg_risk_score else 0.0,

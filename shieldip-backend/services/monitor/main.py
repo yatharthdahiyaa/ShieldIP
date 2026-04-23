@@ -564,6 +564,18 @@ def _run_monitoring_tick():
             match_confidence = _compute_match_confidence(candidate["base_confidence"], fp_data)
 
             if match_confidence > 45.0:
+                # ── Deduplication: skip if this URL was already recorded ──
+                existing_v = (
+                    firestore_client.collection("violations")
+                    .where("url", "==", candidate["url"])
+                    .where("asset_id", "==", candidate["asset_id"])
+                    .limit(1)
+                    .stream()
+                )
+                if any(True for _ in existing_v):
+                    logger.info(f"Skipping duplicate violation for URL: {candidate['url'][:80]}")
+                    continue
+
                 violation_id = str(uuid.uuid4())
                 detected_at = _now_iso()
 

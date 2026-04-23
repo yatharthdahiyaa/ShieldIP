@@ -147,53 +147,48 @@ def _pick_variant_type() -> str:
     return random.choices(VARIANT_TYPES, weights=VARIANT_WEIGHTS, k=1)[0]
 
 
-def _generate_synthetic_violation(asset_id: str, asset_owner: str = "ShieldIP Demo Corp") -> dict:
-    """SIMULATION: Generate a synthetic piracy violation candidate."""
-    platform = random.choice(PLATFORMS)
-    username = fake.user_name()
-    video_id = fake.hexify(text="^^^^^^^^^^")
-    url = f"https://{platform['domain']}{platform['path_prefix'].replace('{user}', username)}{video_id}"
-    region = random.choice(REGIONS)
-    base_confidence = random.uniform(25.0, 95.0)
-    handle = _extract_account_handle(url)
-    account_type = _classify_account(handle, asset_owner)
-    variant_type = _pick_variant_type()
-
-    return {
-        "asset_id": asset_id,
-        "platform": platform["name"],
-        "url": url,
-        "region": region,
-        "base_confidence": round(base_confidence, 2),
-        "account_handle": handle,
-        "account_type": account_type,
-        "variant_type": variant_type,
-    }
-
-
-def _get_vision_confidence() -> float:
-    """Call Cloud Vision API for a confidence score; fall back to simulated."""
+def _find_web_violations(asset_id: str, gcs_uri: str, asset_owner: str) -> list:
+    """REAL: Use Cloud Vision API to find matching images on the web."""
     try:
-        gcs_uri = f"gs://{ASSETS_BUCKET}/comparison/placeholder.png"
         image = vision.Image(source=vision.ImageSource(image_uri=gcs_uri))
-        features = [vision.Feature(type_=vision.Feature.Type.LABEL_DETECTION, max_results=5)]
+        features = [vision.Feature(type_=vision.Feature.Type.WEB_DETECTION)]
         request_obj = vision.AnnotateImageRequest(image=image, features=features)
         response = vision_client.annotate_image(request=request_obj)
-        if response.label_annotations:
-            return round(response.label_annotations[0].score * 100, 2)
-        return round(random.uniform(40.0, 80.0), 2)
+        
+        candidates = []
+        if response.web_detection and response.web_detection.pages_with_matching_images:
+            for page in response.web_detection.pages_with_matching_images:
+                url = page.url
+                platform_name = "Unknown Website"
+                for p in PLATFORMS:
+                    if p["domain"] in url:
+                        platform_name = p["name"]
+                        break
+                
+                handle = _extract_account_handle(url)
+                account_type = _classify_account(handle, asset_owner)
+                
+                candidates.append({
+                    "asset_id": asset_id,
+                    "platform": platform_name,
+                    "url": url,
+                    "region": random.choice(REGIONS),
+                    "base_confidence": 98.5,
+                    "account_handle": handle,
+                    "account_type": account_type,
+                    "variant_type": "direct",
+                })
+        return candidates
     except Exception as exc:
-        logger.warning(f"Vision API failed (using simulated): {exc}")
-        return round(random.uniform(40.0, 80.0), 2)
+        logger.error(f"Vision API WEB_DETECTION failed: {exc}", exc_info=True)
+        return []
 
 
-def _compute_match_confidence(base_confidence: float, vision_score: float, fingerprint: dict) -> float:
-    """Unified 0–100 match_confidence from Vision + simulation + label overlap."""
-    label_count = len(fingerprint.get("vision_labels", []))
-    web_entity_count = len(fingerprint.get("web_entities", []))
-    label_density_score = min((label_count + web_entity_count) * 3, 100.0)
-    combined = (base_confidence * 0.40) + (vision_score * 0.40) + (label_density_score * 0.20)
-    return round(min(max(combined, 0.0), 100.0), 2)
+
+
+def _compute_match_confidence(base_confidence: float, fingerprint: dict) -> float:
+    """Unified 0–100 match_confidence."""
+    return base_confidence
 
 
 # ═══════════════════════════════════════════════
@@ -542,27 +537,31 @@ def _run_monitoring_tick():
         return {"violations_created": 0}
 
     violations_created = 0
-    vision_score = _get_vision_confidence()
 
     for fp_doc in fingerprints:
         fp_data = fp_doc.to_dict()
         asset_id = fp_data.get("asset_id", fp_doc.id)
 
         asset_owner = "ShieldIP Demo Corp"
+        gcs_uri = None
         try:
             a_doc = firestore_client.collection("assets").document(asset_id).get()
             if a_doc.exists:
-                asset_owner = a_doc.to_dict().get("owner", asset_owner)
+                a_data = a_doc.to_dict()
+                asset_owner = a_data.get("owner", asset_owner)
+                gcs_uri = a_data.get("gcs_uri")
         except Exception:
             pass
 
-        num_candidates = random.randint(3, 5)
-        candidates = [_generate_synthetic_violation(asset_id, asset_owner) for _ in range(num_candidates)]
+        if not gcs_uri:
+            logger.warning(f"Asset {asset_id} missing gcs_uri, skipping web detection.")
+            continue
+
+        # Use REAL Cloud Vision WEB_DETECTION
+        candidates = _find_web_violations(asset_id, gcs_uri, asset_owner)
 
         for candidate in candidates:
-            match_confidence = _compute_match_confidence(
-                candidate["base_confidence"], vision_score, fp_data
-            )
+            match_confidence = _compute_match_confidence(candidate["base_confidence"], fp_data)
 
             if match_confidence > 45.0:
                 violation_id = str(uuid.uuid4())

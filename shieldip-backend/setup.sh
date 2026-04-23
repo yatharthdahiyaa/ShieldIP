@@ -7,8 +7,8 @@
 set -euo pipefail
 
 # ──────────── Configuration ────────────
-PROJECT_ID="${PROJECT_ID:?ERROR: Set PROJECT_ID environment variable first}"
-GEMINI_API_KEY="${GEMINI_API_KEY:?ERROR: Set GEMINI_API_KEY environment variable first (get one at aistudio.google.com)}"
+PROJECT_ID="sharp-avatar-494218-r8"
+GEMINI_API_KEY="AIzaSyBYG5kjCJ_RgfHCjJ_574xF6in7u5jToSs"
 REGION="${REGION:-us-central1}"
 REPO_NAME="shieldip"
 

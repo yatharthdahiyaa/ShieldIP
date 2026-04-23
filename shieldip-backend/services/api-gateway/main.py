@@ -163,6 +163,17 @@ async def register_asset(
 
 
 # ─────────────────────────────────────────────
+# GET /assets
+# ─────────────────────────────────────────────
+@app.get("/assets")
+def list_assets():
+    query = firestore_client.collection("assets").order_by("registered_at", direction=firestore.Query.DESCENDING).limit(100)
+    docs = query.stream()
+    assets = [d.to_dict() for d in docs]
+    return _response(data={"assets": assets})
+
+
+# ─────────────────────────────────────────────
 # GET /assets/{asset_id}
 # ─────────────────────────────────────────────
 @app.get("/assets/{asset_id}")

@@ -4,21 +4,13 @@ import { AlertTriangle, Shield, DollarSign, Activity, ArrowUpRight, Zap, Globe, 
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { pageVariants, staggerContainer, staggerItem } from '../utils/animations';
-import useViolationsQuery, { SEED_VIOLATIONS } from '../hooks/useViolations';
-import { useAnalyticsSummary, useAnalyticsByPlatform, SEED_SUMMARY, SEED_PLATFORM } from '../hooks/useAnalytics';
+import useViolationsQuery from '../hooks/useViolations';
+import { useAnalyticsSummary, useAnalyticsByPlatform } from '../hooks/useAnalytics';
 import { Link } from 'react-router-dom';
 import { fetchTraceabilitySummary } from '../services/api';
 import { SkeletonCard } from '../components/Skeleton';
 
-const WEEKLY_DATA = [
-  { day: 'Mon', violations: 12, resolved: 8 },
-  { day: 'Tue', violations: 19, resolved: 13 },
-  { day: 'Wed', violations: 27, resolved: 22 },
-  { day: 'Thu', violations: 23, resolved: 19 },
-  { day: 'Fri', violations: 34, resolved: 28 },
-  { day: 'Sat', violations: 18, resolved: 15 },
-  { day: 'Sun', violations: 9,  resolved: 7 },
-];
+
 
 const TOOLTIP_STYLE = {
   contentStyle: { background: '#131313', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', fontFamily: 'JetBrains Mono', fontSize: '11px' },
@@ -54,7 +46,7 @@ function KpiCard({ icon: Icon, label, value, sub, change, accentColor }) {
   );
 }
 
-const SEED_TRACE = { origin_sources: 6, deepest_chain: 4, fastest_spread_velocity: 8.2, fastest_chain: { chain_id: 'ch-001', origin_platform: 'YouTube', total_nodes: 8, spread_velocity: 8.2, platforms_reached: ['YouTube','TikTok','Instagram','X'] }, platforms_reached_today: ['YouTube','TikTok','Instagram','X','Twitch'] };
+
 
 export default function Dashboard() {
   const { data: violations, isLoading: vLoading } = useViolationsQuery();
@@ -64,18 +56,24 @@ export default function Dashboard() {
     queryKey: ['traceability-summary'],
     queryFn: fetchTraceabilitySummary,
     refetchInterval: 10000,
-    placeholderData: { data: SEED_TRACE },
-    select: (r) => r?.data || SEED_TRACE,
+    select: (r) => r?.data || null,
   });
-  const trace = traceData || SEED_TRACE;
+  const trace = traceData || {};
 
-  const vios = violations || SEED_VIOLATIONS;
-  const stats = summary || SEED_SUMMARY;
-  const platforms = platformData || SEED_PLATFORM;
+  const vios = violations || [];
+  const stats = summary || {};
+  const platforms = platformData || [];
 
-  const totalResolved = WEEKLY_DATA.reduce((s, d) => s + d.resolved, 0);
-  const totalWeekly = WEEKLY_DATA.reduce((s, d) => s + d.violations, 0);
-  const resolveRate = Math.round((totalResolved / totalWeekly) * 100);
+  const totalWeekly = stats.violations_this_week || 0;
+  const totalResolved = stats.resolved_this_week || 0;
+
+  const resolveRate = totalWeekly > 0 ? Math.round((totalResolved / totalWeekly) * 100) : 0;
+
+  // Build a simple weekly chart from platform data (violations by platform as a proxy)
+  const weeklyChartData = platforms.length > 0
+    ? platforms.map(p => ({ day: p.platform.slice(0, 3), violations: p.violations, resolved: Math.round(p.violations * (stats.dmca_success_rate || 0.8)) }))
+    : [];
+
 
   if (vLoading && sLoading) return <div className="p-10"><SkeletonCard count={4} /></div>;
 
@@ -114,7 +112,8 @@ export default function Dashboard() {
             <h3 className="font-display font-bold text-[14px] text-white">Weekly Trends</h3>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={WEEKLY_DATA} margin={{ top: 4, right: 4, left: -22, bottom: 4 }}>
+            {weeklyChartData.length > 0 ? (
+            <AreaChart data={weeklyChartData} margin={{ top: 4, right: 4, left: -22, bottom: 4 }}>
               <defs>
                 <linearGradient id="areaRed2" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ff2d55" stopOpacity={0.2} />
@@ -131,6 +130,11 @@ export default function Dashboard() {
               <Area type="monotone" dataKey="violations" stroke="#ff2d55" strokeWidth={2} fill="url(#areaRed2)" dot={{ fill: '#ff2d55', r: 3, strokeWidth: 0 }} />
               <Area type="monotone" dataKey="resolved" stroke="#16ff9e" strokeWidth={2} fill="url(#areaGreen2)" dot={{ fill: '#16ff9e', r: 3, strokeWidth: 0 }} />
             </AreaChart>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-[12px] text-[#444]">No trend data yet</p>
+              </div>
+            )}
           </ResponsiveContainer>
         </div>
 

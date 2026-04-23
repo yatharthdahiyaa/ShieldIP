@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -25,6 +25,7 @@ api.interceptors.response.use(
 );
 
 export const fetchHealth = () => api.get('/health').then((r) => r.data);
+export const fetchAssets = () => api.get('/assets').then((r) => r.data);
 export const registerAsset = (data) => api.post('/assets/register', data).then((r) => r.data);
 export const fetchAsset = (id) => api.get(`/assets/${id}`).then((r) => r.data);
 export const fetchViolations = (params) => api.get('/violations', { params }).then((r) => r.data);

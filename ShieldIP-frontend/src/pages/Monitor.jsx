@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Globe, Radio, Wifi, AlertTriangle } from 'lucide-react';
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps';
 import { pageVariants } from '../utils/animations';
-import useViolationsQuery, { SEED_VIOLATIONS } from '../hooks/useViolations';
+import useViolationsQuery from '../hooks/useViolations';
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
@@ -18,7 +18,7 @@ const REGION_COORDS = {
 
 export default function Monitor() {
   const { data: violations } = useViolationsQuery();
-  const vios = violations || SEED_VIOLATIONS;
+  const vios = violations || [];
   const [hoveredMarker, setHoveredMarker] = useState(null);
 
   const hotspots = useMemo(() => {

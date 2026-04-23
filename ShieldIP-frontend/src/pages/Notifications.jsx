@@ -4,12 +4,12 @@ import { Bell, CheckCircle2, AlertTriangle, Shield, Clock, Eye, Archive, Trash2 
 import { formatDistanceToNow } from 'date-fns';
 import { pageVariants, staggerContainer, staggerItem } from '../utils/animations';
 import useAppStore from '../store/useAppStore';
-import useViolationsQuery, { SEED_VIOLATIONS } from '../hooks/useViolations';
+import useViolationsQuery from '../hooks/useViolations';
 
 export default function Notifications() {
   const { readNotificationIds, markNotificationRead } = useAppStore();
   const { data: violations } = useViolationsQuery();
-  const vios = violations || SEED_VIOLATIONS;
+  const vios = violations || [];
   const [filter, setFilter] = useState('all');
 
   const notifications = vios.map((v) => ({

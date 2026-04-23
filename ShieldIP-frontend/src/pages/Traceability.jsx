@@ -13,42 +13,14 @@ import { ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { fetchChains, fetchChain, fetchChainTimeline } from '../services/api';
 import { pageVariants } from '../utils/animations';
 
-// ─── SEED DATA (works offline) ──────────────────────
-const SEED_CHAINS = [
-  { chain_id: 'ch-001', asset_id: 'asset-001', origin_platform: 'YouTube', origin_url: 'https://youtube.com/watch?v=abc', origin_detected_at: new Date(Date.now() - 7200000).toISOString(), total_nodes: 8, max_depth: 3, platforms_reached: ['YouTube','TikTok','Instagram','X','Twitch'], spread_velocity: 6.4, last_updated: new Date().toISOString() },
-  { chain_id: 'ch-002', asset_id: 'asset-002', origin_platform: 'TikTok', origin_url: 'https://tiktok.com/@user/video/xyz', origin_detected_at: new Date(Date.now() - 3600000).toISOString(), total_nodes: 4, max_depth: 2, platforms_reached: ['TikTok','Instagram'], spread_velocity: 3.1, last_updated: new Date().toISOString() },
-  { chain_id: 'ch-003', asset_id: 'asset-003', origin_platform: 'Instagram', origin_url: 'https://instagram.com/reel/def', origin_detected_at: new Date(Date.now() - 1800000).toISOString(), total_nodes: 2, max_depth: 1, platforms_reached: ['Instagram','Facebook'], spread_velocity: 1.8, last_updated: new Date().toISOString() },
-];
-
-function makeSeedTree(chainId) {
-  const now = Date.now();
-  return {
-    chain: SEED_CHAINS.find(c => c.chain_id === chainId) || SEED_CHAINS[0],
-    tree: [
-      { violation_id: 'v-origin', depth: 0, platform: 'YouTube', url: 'https://youtube.com/watch?v=abc', account_handle: 'pirate_uploads', account_type: 'unofficial', variant_type: 'direct', detected_at: new Date(now - 7200000).toISOString(), time_from_origin_minutes: 0, match_confidence: 97, enforcement_status: 'takedown', is_origin: true, children_count: 3, children: [
-        { violation_id: 'v-002', depth: 1, platform: 'TikTok', url: 'https://tiktok.com/@user/video/xyz', account_handle: 'clip_master', account_type: 'unofficial', variant_type: 'clipped', detected_at: new Date(now - 5400000).toISOString(), time_from_origin_minutes: 30, match_confidence: 91, enforcement_status: 'pending', is_origin: false, children_count: 1, children: [
-          { violation_id: 'v-005', depth: 2, platform: 'Telegram', url: 'https://t.me/c/102', account_handle: 'leak_channel', account_type: 'unofficial', variant_type: 'direct', detected_at: new Date(now - 2400000).toISOString(), time_from_origin_minutes: 80, match_confidence: 88, enforcement_status: 'pending', is_origin: false, children_count: 0, children: [] },
-        ]},
-        { violation_id: 'v-003', depth: 1, platform: 'Instagram', url: 'https://instagram.com/reel/def', account_handle: 'meme_lord', account_type: 'unofficial', variant_type: 'meme', detected_at: new Date(now - 4800000).toISOString(), time_from_origin_minutes: 40, match_confidence: 82, enforcement_status: 'pending', is_origin: false, children_count: 1, children: [
-          { violation_id: 'v-006', depth: 2, platform: 'Facebook', url: 'https://facebook.com/watch/789', account_handle: 'share_page', account_type: 'unofficial', variant_type: 'direct', detected_at: new Date(now - 1800000).toISOString(), time_from_origin_minutes: 90, match_confidence: 74, enforcement_status: 'pending', is_origin: false, children_count: 0, children: [] },
-        ]},
-        { violation_id: 'v-004', depth: 1, platform: 'X', url: 'https://x.com/user/status/456', account_handle: 'news_official', account_type: 'official', variant_type: 'mirrored', detected_at: new Date(now - 3600000).toISOString(), time_from_origin_minutes: 60, match_confidence: 78, enforcement_status: 'pending', is_origin: false, children_count: 1, children: [
-          { violation_id: 'v-007', depth: 2, platform: 'Twitch', url: 'https://twitch.tv/videos/101', account_handle: 'stream_rips', account_type: 'unofficial', variant_type: 'clipped', detected_at: new Date(now - 1200000).toISOString(), time_from_origin_minutes: 100, match_confidence: 69, enforcement_status: 'pending', is_origin: false, children_count: 0, children: [] },
-        ]},
-      ]},
-    ],
-  };
-}
-
 function flattenTree(nodes, acc = []) {
+  if (!nodes) return acc;
   for (const n of nodes) {
     acc.push(n);
     if (n.children?.length) flattenTree(n.children, acc);
   }
   return acc;
 }
-
-const SEED_TIMELINE = flattenTree(makeSeedTree('ch-001').tree).sort((a, b) => a.time_from_origin_minutes - b.time_from_origin_minutes);
 
 // ─── CONSTANTS ──────────────────────────────
 const DEPTH_COLORS = ['#ff2d55', '#f59e0b', '#facc15', '#6b7280'];
@@ -194,8 +166,8 @@ function TreeViewTab({ chainId }) {
     queryFn: () => fetchChain(chainId),
     enabled: !!chainId,
     refetchInterval: 15000,
-    placeholderData: { data: makeSeedTree(chainId) },
-    select: (r) => r?.data || makeSeedTree(chainId),
+    placeholderData: { data: {} },
+    select: (r) => r?.data || {},
   });
 
   const tree = chainData?.tree || [];
@@ -265,11 +237,11 @@ function TimelineTab({ chainId }) {
     queryFn: () => fetchChainTimeline(chainId),
     enabled: !!chainId,
     refetchInterval: 15000,
-    placeholderData: { data: SEED_TIMELINE },
-    select: (r) => (r?.data && Array.isArray(r.data) ? r.data : SEED_TIMELINE),
+    placeholderData: { data: [] },
+    select: (r) => (r?.data && Array.isArray(r.data) ? r.data : []),
   });
 
-  const items = timeline || SEED_TIMELINE;
+  const items = timeline || [];
   const platforms = useMemo(() => [...new Set(items.map(i => i.platform))], [items]);
   const maxMinutes = useMemo(() => Math.max(1, ...items.map(i => i.time_from_origin_minutes)), [items]);
   const [visibleCount, setVisibleCount] = useState(0);
@@ -408,11 +380,11 @@ export default function Traceability() {
     queryKey: ['chains'],
     queryFn: fetchChains,
     refetchInterval: 15000,
-    placeholderData: { data: SEED_CHAINS },
-    select: (r) => (r?.data && Array.isArray(r.data) ? r.data : SEED_CHAINS),
+    placeholderData: { data: [] },
+    select: (r) => (r?.data && Array.isArray(r.data) ? r.data : []),
   });
 
-  const chainList = chains || SEED_CHAINS;
+  const chainList = chains || [];
 
   const handleSelectChain = useCallback((chainId) => {
     setActiveChainId(chainId);

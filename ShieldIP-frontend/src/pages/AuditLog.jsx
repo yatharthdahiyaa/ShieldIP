@@ -4,19 +4,8 @@ import { ClipboardList, Search, Download, Filter, Shield, Zap, Eye, FileText, Cl
 import { formatDistanceToNow, format } from 'date-fns';
 import { pageVariants, staggerContainer, staggerItem } from '../utils/animations';
 import Papa from 'papaparse';
-
-const SEED_LOGS = [
-  { id: 'AL-001', action: 'asset_registered', actor: 'system', target: 'A-2001', details: 'brand-logo.png registered via pHash', timestamp: new Date(Date.now() - 3600000).toISOString(), severity: 'info' },
-  { id: 'AL-002', action: 'violation_detected', actor: 'monitor-agent', target: 'V-1001', details: 'YouTube violation detected — 99% confidence', timestamp: new Date(Date.now() - 7200000).toISOString(), severity: 'warning' },
-  { id: 'AL-003', action: 'enforcement_executed', actor: 'admin@shieldip.io', target: 'V-1001', details: 'DMCA Takedown filed via AI pipeline', timestamp: new Date(Date.now() - 10800000).toISOString(), severity: 'critical' },
-  { id: 'AL-004', action: 'risk_scored', actor: 'ai-scoring-engine', target: 'V-1002', details: 'Risk score computed: 78/100 — High', timestamp: new Date(Date.now() - 14400000).toISOString(), severity: 'info' },
-  { id: 'AL-005', action: 'violation_detected', actor: 'monitor-agent', target: 'V-1003', details: 'Instagram violation detected — 95% confidence', timestamp: new Date(Date.now() - 21600000).toISOString(), severity: 'warning' },
-  { id: 'AL-006', action: 'settings_updated', actor: 'admin@shieldip.io', target: 'config', details: 'Confidence threshold changed from 70 to 80', timestamp: new Date(Date.now() - 43200000).toISOString(), severity: 'info' },
-  { id: 'AL-007', action: 'enforcement_executed', actor: 'admin@shieldip.io', target: 'V-1003', details: 'Escalate Legal — flagged for manual review', timestamp: new Date(Date.now() - 50400000).toISOString(), severity: 'critical' },
-  { id: 'AL-008', action: 'asset_registered', actor: 'system', target: 'A-2002', details: 'product-shot.jpg registered via pHash', timestamp: new Date(Date.now() - 86400000).toISOString(), severity: 'info' },
-  { id: 'AL-009', action: 'violation_detected', actor: 'monitor-agent', target: 'V-1005', details: 'Twitch violation detected — 92% confidence', timestamp: new Date(Date.now() - 100800000).toISOString(), severity: 'warning' },
-  { id: 'AL-010', action: 'enforcement_executed', actor: 'system', target: 'V-1005', details: 'Claim & Monetize — royalty routing enabled', timestamp: new Date(Date.now() - 115200000).toISOString(), severity: 'critical' },
-];
+import { useQuery } from '@tanstack/react-query';
+import { fetchAssets, fetchViolations } from '../services/api';
 
 const ACTION_ICONS = {
   asset_registered: { icon: Shield, color: '#16ff9e' },
@@ -31,9 +20,50 @@ export default function AuditLog() {
   const [filterAction, setFilterAction] = useState('all');
   const [filterSeverity, setFilterSeverity] = useState('all');
 
+  const { data: assetsData } = useQuery({ queryKey: ['assets'], queryFn: fetchAssets, refetchInterval: 15000 });
+  const { data: violationsData } = useQuery({ queryKey: ['violations', { page: 1, page_size: 50 }], queryFn: () => fetchViolations({ page: 1, page_size: 50 }), refetchInterval: 15000 });
+
+  const rawLogs = useMemo(() => {
+    const logs = [];
+    (assetsData?.data?.assets || []).forEach(a => {
+      logs.push({
+        id: `AL-A-${(a.asset_id || '').slice(0,6)}`,
+        action: 'asset_registered',
+        actor: a.owner || 'system',
+        target: a.asset_id,
+        details: `Asset '${a.filename}' registered`,
+        timestamp: a.registered_at,
+        severity: 'info'
+      });
+    });
+    (violationsData?.data?.violations || []).forEach(v => {
+      logs.push({
+        id: `AL-V-${(v.violation_id || '').slice(0,6)}`,
+        action: 'violation_detected',
+        actor: 'monitor-agent',
+        target: v.violation_id,
+        details: `${v.platform} violation detected — ${Math.round(v.match_confidence || 0)}% confidence`,
+        timestamp: v.detected_at,
+        severity: v.threat_level === 'critical' ? 'critical' : v.threat_level === 'high' ? 'warning' : 'info'
+      });
+      if (v.enforcement_status === 'queued' || v.enforcement_status === 'takedown') {
+        logs.push({
+          id: `AL-E-${(v.violation_id || '').slice(0,6)}`,
+          action: 'enforcement_executed',
+          actor: 'system',
+          target: v.violation_id,
+          details: `Enforcement action triggered: ${v.enforcement_status}`,
+          timestamp: new Date(new Date(v.detected_at).getTime() + 1000).toISOString(),
+          severity: 'critical'
+        });
+      }
+    });
+    return logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }, [assetsData, violationsData]);
+
   const filtered = useMemo(() => {
-    let out = SEED_LOGS;
-    if (search) out = out.filter((l) => l.details.toLowerCase().includes(search.toLowerCase()) || l.target.toLowerCase().includes(search.toLowerCase()) || l.actor.toLowerCase().includes(search.toLowerCase()));
+    let out = rawLogs;
+    if (search) out = out.filter((l) => l.details?.toLowerCase().includes(search.toLowerCase()) || l.target?.toLowerCase().includes(search.toLowerCase()) || l.actor?.toLowerCase().includes(search.toLowerCase()));
     if (filterAction !== 'all') out = out.filter((l) => l.action === filterAction);
     if (filterSeverity !== 'all') out = out.filter((l) => l.severity === filterSeverity);
     return out;

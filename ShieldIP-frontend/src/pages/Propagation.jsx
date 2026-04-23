@@ -9,28 +9,7 @@ import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, AreaC
 import { fetchPropagationChain } from '../services/api';
 import { pageVariants } from '../utils/animations';
 
-const SEED_ASSETS = [
-  { id: 'asset-001', label: 'brand-logo.png' },
-  { id: 'asset-002', label: 'product-shot.jpg' },
-  { id: 'asset-003', label: 'promo-video.mp4' },
-];
 
-const SEED_CHAIN = {
-  asset_id: 'asset-001',
-  total_nodes: 8,
-  spread_velocity: 6.4,
-  origin: { violation_id: 'v-origin', platform: 'YouTube', detected_at: new Date(Date.now() - 7200000).toISOString(), source_type: 'origin' },
-  chain: [
-    { violation_id: 'v-origin', platform: 'YouTube', url: 'https://youtube.com/watch?v=abc', region: 'US', detected_at: new Date(Date.now() - 7200000).toISOString(), chain_position: 1, source_type: 'origin', variant_type: 'direct_reupload', account_type: 'unofficial', match_confidence: 97, enforcement_status: 'takedown' },
-    { violation_id: 'v-002', platform: 'TikTok', url: 'https://tiktok.com/@user/video/xyz', region: 'IN', detected_at: new Date(Date.now() - 5400000).toISOString(), chain_position: 2, source_type: 'repost', variant_type: 'clipped_highlight', account_type: 'unofficial', match_confidence: 91, enforcement_status: 'pending' },
-    { violation_id: 'v-003', platform: 'Instagram', url: 'https://instagram.com/reel/def', region: 'BR', detected_at: new Date(Date.now() - 4800000).toISOString(), chain_position: 3, source_type: 'repost', variant_type: 'meme_edit', account_type: 'unofficial', match_confidence: 82, enforcement_status: 'pending' },
-    { violation_id: 'v-004', platform: 'X', url: 'https://x.com/user/status/456', region: 'UK', detected_at: new Date(Date.now() - 3600000).toISOString(), chain_position: 4, source_type: 'repost', variant_type: 'mirrored', account_type: 'official', match_confidence: 78, enforcement_status: 'pending' },
-    { violation_id: 'v-005', platform: 'Facebook', url: 'https://facebook.com/watch/789', region: 'DE', detected_at: new Date(Date.now() - 2400000).toISOString(), chain_position: 5, source_type: 'repost', variant_type: 'cropped', account_type: 'unofficial', match_confidence: 85, enforcement_status: 'queued' },
-    { violation_id: 'v-006', platform: 'Twitch', url: 'https://twitch.tv/videos/101', region: 'US', detected_at: new Date(Date.now() - 1800000).toISOString(), chain_position: 6, source_type: 'repost', variant_type: 'colour_graded', account_type: 'unofficial', match_confidence: 73, enforcement_status: 'pending' },
-    { violation_id: 'v-007', platform: 'Telegram', url: 'https://t.me/c/102', region: 'NG', detected_at: new Date(Date.now() - 1200000).toISOString(), chain_position: 7, source_type: 'repost', variant_type: 'direct_reupload', account_type: 'unofficial', match_confidence: 95, enforcement_status: 'pending' },
-    { violation_id: 'v-008', platform: 'Dailymotion', url: 'https://dailymotion.com/video/abc', region: 'FR', detected_at: new Date(Date.now() - 600000).toISOString(), chain_position: 8, source_type: 'repost', variant_type: 'meme_edit', account_type: 'unofficial', match_confidence: 68, enforcement_status: 'pending' },
-  ],
-};
 
 const PLATFORM_COLORS = {
   YouTube: '#ff0000', TikTok: '#69c9d0', Instagram: '#e1306c',
@@ -87,18 +66,18 @@ function buildFlowNodes(chain, selectedId) {
 }
 
 export default function Propagation() {
-  const [selectedAsset, setSelectedAsset] = useState(SEED_ASSETS[0].id);
+  const [selectedAsset, setSelectedAsset] = useState('');
   const [selectedNode, setSelectedNode] = useState(null);
 
   const { data: chainData } = useQuery({
     queryKey: ['propagation-chain', selectedAsset],
     queryFn: () => fetchPropagationChain(selectedAsset),
     refetchInterval: 15000,
-    placeholderData: { data: SEED_CHAIN },
-    select: (r) => r?.data || SEED_CHAIN,
+    placeholderData: { data: { chain: [] } },
+    select: (r) => r?.data || { chain: [] },
   });
 
-  const chain = chainData?.chain || SEED_CHAIN.chain;
+  const chain = chainData?.chain || [];
   const { nodes, edges } = useMemo(() => buildFlowNodes(chain, selectedNode), [chain, selectedNode]);
 
   const onNodeClick = useCallback((_, node) => {
@@ -131,7 +110,7 @@ export default function Propagation() {
         </div>
         <select value={selectedAsset} onChange={(e) => { setSelectedAsset(e.target.value); setSelectedNode(null); }}
           className="void-input text-[12px] px-3 py-2 w-52">
-          {SEED_ASSETS.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+          <option value="">Select an asset...</option>
         </select>
       </div>
 

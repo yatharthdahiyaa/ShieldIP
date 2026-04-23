@@ -4,8 +4,8 @@ import { BarChart2, Globe, TrendingUp, Shield, DollarSign, Activity, AlertTriang
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, Legend, PieChart, Pie, Cell } from 'recharts';
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import { pageVariants, staggerContainer, staggerItem } from '../utils/animations';
-import useViolationsQuery, { SEED_VIOLATIONS } from '../hooks/useViolations';
-import { useAnalyticsSummary, useAnalyticsByPlatform, SEED_SUMMARY, SEED_PLATFORM } from '../hooks/useAnalytics';
+import useViolationsQuery from '../hooks/useViolations';
+import { useAnalyticsSummary, useAnalyticsByPlatform } from '../hooks/useAnalytics';
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 const HOTSPOTS = [
@@ -40,12 +40,12 @@ export default function Analytics() {
   const { data: summary } = useAnalyticsSummary();
   const { data: platformData } = useAnalyticsByPlatform();
 
-  const vios = violations || SEED_VIOLATIONS;
-  const stats = summary || SEED_SUMMARY;
-  const platforms = platformData || SEED_PLATFORM;
+  const vios = violations || [];
+  const stats = summary || {};
+  const platforms = platformData || [];
 
-  const pieData = useMemo(() => platforms.slice(0, 6).map((p) => ({ name: p.platform, value: p.violations })), [platforms]);
-  const resolveRate = stats.violations_this_week > 0 ? Math.round((stats.resolved_this_week / stats.violations_this_week) * 100) : 82;
+  const pieData = useMemo(() => platforms.slice(0, 6).map((p) => ({ name: p.platform, value: p.violations || p.violation_count || 0 })), [platforms]);
+  const resolveRate = stats.violations_this_week > 0 ? Math.round((stats.resolved_this_week / stats.violations_this_week) * 100) : 0;
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6">
@@ -64,10 +64,10 @@ export default function Analytics() {
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {[
-          { icon: AlertTriangle, label: 'Total Violations', value: stats.total_violations, change: '+12%', color: '#ff2d55' },
-          { icon: Shield, label: 'DMCA Success', value: `${Math.round(stats.dmca_success_rate * 100)}%`, change: '+3%', color: '#e2e2e2' },
-          { icon: DollarSign, label: 'Revenue Recovered', value: `$${(stats.revenue_recovered / 1000).toFixed(1)}K`, change: '+$8.1K', color: '#16ff9e' },
-          { icon: Activity, label: 'Active Monitors', value: '12', change: null, color: '#06b6d4' },
+          { icon: AlertTriangle, label: 'Total Violations', value: stats.total_violations ?? '—', change: null, color: '#ff2d55' },
+          { icon: Shield, label: 'DMCA Success', value: stats.dmca_success_rate != null ? `${Math.round(stats.dmca_success_rate * 100)}%` : '—', change: null, color: '#e2e2e2' },
+          { icon: DollarSign, label: 'Revenue Recovered', value: stats.revenue_recovered != null ? `$${(stats.revenue_recovered / 1000).toFixed(1)}K` : '—', change: null, color: '#16ff9e' },
+          { icon: Activity, label: 'Active Monitors', value: '—', change: null, color: '#06b6d4' },
         ].map(({ icon: Ic, label, value, change, color }) => (
           <motion.div key={label} variants={staggerItem} className="rounded-xl p-5 flex items-center gap-4"
             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>

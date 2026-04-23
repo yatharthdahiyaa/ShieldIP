@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Filter, Globe, Youtube, Video, Instagram, Twitter as XIcon, Twitch as TwitchIcon, ChevronDown, X, Brain, AlertCircle, TrendingDown, Crosshair, Zap, Cpu, GitBranch, ShieldAlert, Copy, Palette } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { pageVariants, staggerItem, slideRight } from '../utils/animations';
-import useViolationsQuery, { SEED_VIOLATIONS } from '../hooks/useViolations';
+import useViolationsQuery from '../hooks/useViolations';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const VARIANT_ICONS = { direct_reupload: Copy, clipped_highlight: Video, meme_edit: Palette, mirrored: Copy, cropped: Copy, colour_graded: Palette, unknown: AlertCircle };
@@ -26,7 +26,7 @@ function timeAgo(ts) {
 
 export default function Violations() {
   const { data: violations, isLoading } = useViolationsQuery();
-  const vios = violations || SEED_VIOLATIONS;
+  const vios = violations || [];
   const [search, setSearch] = useState('');
   const [filterLevel, setFilterLevel] = useState('all');
   const [filterVariant, setFilterVariant] = useState('all');
@@ -51,16 +51,17 @@ export default function Violations() {
     setAnalysis(null);
     setAnalyzing(true);
     try {
-      const key = import.meta.env.VITE_GEMINI_API_KEY;
+      const key = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyAqbT94d9afcgGf8h11ZBA7ToDIBxXaZY0';
       if (!key) { setAnalysis({ threat_level: vio.threat_level || 'high', recommended_action: 'DMCA Takedown', reasoning: 'AI analysis unavailable — set VITE_GEMINI_API_KEY.', estimated_revenue_loss: '$2,400' }); return; }
       const genAI = new GoogleGenerativeAI(key);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const prompt = `Analyze this IP violation and respond ONLY with valid JSON:\n${JSON.stringify(vio)}\n\nJSON format: {"threat_level":"critical|high|medium|low","recommended_action":"string","reasoning":"string","estimated_revenue_loss":"$X,XXX"}`;
+      const prompt = `Analyze this IP violation and respond ONLY with valid JSON (no markdown, no code blocks):\n${JSON.stringify(vio)}\n\nJSON format: {"threat_level":"critical|high|medium|low","recommended_action":"string","reasoning":"string","estimated_revenue_loss":"$X,XXX"}`;
       const result = await model.generateContent(prompt);
       const text = result.response.text().replace(/```json\n?/g, '').replace(/```/g, '').trim();
       setAnalysis(JSON.parse(text));
-    } catch {
-      setAnalysis({ threat_level: vio.threat_level || 'high', recommended_action: 'DMCA Takedown', reasoning: 'Analysis completed with default parameters.', estimated_revenue_loss: '$3,200' });
+    } catch (err) {
+      console.error('[Gemini] Analysis failed:', err?.message || err);
+      setAnalysis({ threat_level: vio.threat_level || 'high', recommended_action: 'DMCA Takedown', reasoning: `AI error: ${err?.message || 'Unknown error'}. Check console for details.`, estimated_revenue_loss: '$3,200' });
     } finally { setAnalyzing(false); }
   }, []);
 

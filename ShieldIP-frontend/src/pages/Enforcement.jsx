@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Scale, FileText, Gavel, DollarSign, X, Cpu, Clock, CheckCircle2, ChevronRight, Send, AlertTriangle, Shield, Zap } from 'lucide-react';
 import { pageVariants, scaleIn } from '../utils/animations';
-import useViolationsQuery, { SEED_VIOLATIONS } from '../hooks/useViolations';
+import useViolationsQuery from '../hooks/useViolations';
 import useAppStore from '../store/useAppStore';
 
 const ACTIONS = [
@@ -13,7 +13,7 @@ const ACTIONS = [
 
 export default function Enforcement() {
   const { data: violations } = useViolationsQuery();
-  const vios = violations || SEED_VIOLATIONS;
+  const vios = violations || [];
   const addToast = useAppStore((s) => s.addToast);
 
   const [selected, setSelected] = useState(null);
@@ -31,7 +31,7 @@ export default function Enforcement() {
     setNoticeText('');
     try {
       const { GoogleGenerativeAI } = await import('@google/generative-ai');
-      const key = import.meta.env.VITE_GEMINI_API_KEY;
+      const key = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyAqbT94d9afcgGf8h11ZBA7ToDIBxXaZY0';
       if (!key || !action.usesAI) {
         setNoticeText(action.usesAI
           ? `[GENERATED] DMCA Takedown Notice\n\nPlatform: ${violation.platform}\nViolation ID: ${violation.violation_id}\nConfidence: ${Math.round((violation.match_confidence || 0.9) * 100)}%\n\nUnder 17 U.S.C. 512(c), we request immediate removal of the infringing content identified above. The intellectual property is registered and verified via pHash fingerprinting.\n\nFailure to comply within 48 hours may result in further legal action.`

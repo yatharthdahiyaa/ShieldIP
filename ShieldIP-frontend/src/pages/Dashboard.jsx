@@ -86,9 +86,9 @@ export default function Dashboard() {
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard icon={AlertTriangle} label="Active Violations" value={vios.length} sub="All platforms" change="+12% wk" accentColor="#ff2d55" />
-        <KpiCard icon={Shield} label="DMCA Success" value={`${Math.round(stats.dmca_success_rate * 100)}%`} sub="Last 30d" change="+3%" accentColor="#e2e2e2" />
-        <KpiCard icon={DollarSign} label="Revenue Recovered" value={`$${(stats.revenue_recovered / 1000).toFixed(1)}K`} sub="Est. USD" change="+$8.1K" accentColor="#16ff9e" />
-        <KpiCard icon={Activity} label="Protected Assets" value={stats.total_assets} sub="Registered" accentColor="#06b6d4" />
+        <KpiCard icon={Shield} label="DMCA Success" value={stats.dmca_success_rate != null ? `${Math.round(Math.min(100, stats.dmca_success_rate * 100))}%` : '—'} sub="Last 30d" change="+3%" accentColor="#e2e2e2" />
+        <KpiCard icon={DollarSign} label="Revenue Recovered" value={stats.revenue_recovered != null ? `$${(stats.revenue_recovered / 1000).toFixed(1)}K` : '—'} sub="Est. USD" change="+$8.1K" accentColor="#16ff9e" />
+        <KpiCard icon={Activity} label="Protected Assets" value={stats.total_assets ?? '—'} sub="Registered" accentColor="#06b6d4" />
       </motion.div>
 
       <div className="rounded-xl px-6 py-4 flex items-center gap-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -222,7 +222,7 @@ export default function Dashboard() {
                   <span className="font-mono text-[10px] text-[#444]">{v.violation_id}</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="font-mono text-[12px] text-[#888]">{v.risk_score}%</span>
+                  <span className="font-mono text-[12px] text-[#888]">{Number(v.risk_score).toFixed(1)}%</span>
                   <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${v.threat_level === 'critical' ? 'bg-primary/10 text-primary' : v.threat_level === 'high' ? 'bg-orange-500/10 text-orange-400' : 'bg-white/5 text-[#888]'}`}>
                     {v.threat_level}
                   </span>

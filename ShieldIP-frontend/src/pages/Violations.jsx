@@ -51,17 +51,17 @@ export default function Violations() {
     setAnalysis(null);
     setAnalyzing(true);
     try {
-      const key = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyAqbT94d9afcgGf8h11ZBA7ToDIBxXaZY0';
-      if (!key) { setAnalysis({ threat_level: vio.threat_level || 'high', recommended_action: 'DMCA Takedown', reasoning: 'AI analysis unavailable — set VITE_GEMINI_API_KEY.', estimated_revenue_loss: '$2,400' }); return; }
+      const key = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyBHLF5MEFK0uaVyB5_xx4kHBBXTmF-V6S0';
+      if (!key) { setAnalysis({ threat_level: vio.threat_level || 'high', recommended_action: 'DMCA Takedown', reasoning: 'AI analysis unavailable — set VITE_GEMINI_API_KEY.' }); return; }
       const genAI = new GoogleGenerativeAI(key);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const prompt = `Analyze this IP violation and respond ONLY with valid JSON (no markdown, no code blocks):\n${JSON.stringify(vio)}\n\nJSON format: {"threat_level":"critical|high|medium|low","recommended_action":"string","reasoning":"string","estimated_revenue_loss":"$X,XXX"}`;
+      const prompt = `Analyze this IP violation and respond ONLY with valid JSON (no markdown, no code blocks):\n${JSON.stringify(vio)}\n\nJSON format: {"threat_level":"critical|high|medium|low","recommended_action":"string","reasoning":"string"}`;
       const result = await model.generateContent(prompt);
       const text = result.response.text().replace(/```json\n?/g, '').replace(/```/g, '').trim();
       setAnalysis(JSON.parse(text));
     } catch (err) {
-      console.error('[Gemini] Analysis failed:', err?.message || err);
-      setAnalysis({ threat_level: vio.threat_level || 'high', recommended_action: 'DMCA Takedown', reasoning: `AI error: ${err?.message || 'Unknown error'}. Check console for details.`, estimated_revenue_loss: '$3,200' });
+      console.error('[Gemini] Analysis failed:', err);
+      setAnalysis({ threat_level: vio.threat_level || 'high', recommended_action: 'DMCA Takedown', reasoning: `AI analysis failed: ${err.message}` });
     } finally { setAnalyzing(false); }
   }, []);
 
@@ -139,7 +139,7 @@ export default function Violations() {
                     </Link>
                   )}
                   <div className="text-right">
-                    <p className="font-mono text-[15px] font-bold text-white">{Math.round((vio.match_confidence || 0.9) * 100)}%</p>
+                    <p className="font-mono text-[15px] font-bold text-white">{((vio.match_confidence || 0.9) * 100).toFixed(1)}%</p>
                     <p className="text-[10px] text-[#555]">match</p>
                   </div>
                   <ThreatBadge score={vio.risk_score} />
@@ -202,10 +202,7 @@ export default function Violations() {
                     <p className="void-label flex items-center gap-1.5 mb-2 text-cyan"><Brain size={9} /> Reasoning</p>
                     <p className="text-[12px] leading-relaxed text-[#888]">{analysis.reasoning}</p>
                   </div>
-                  <div className="flex items-center justify-between p-4 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="flex items-center gap-2"><TrendingDown size={14} className="text-primary" /><span className="text-[12px] text-[#888]">Est. Revenue Loss</span></div>
-                    <span className="font-mono font-bold text-[16px] text-white">{analysis.estimated_revenue_loss}</span>
-                  </div>
+
                   <button className="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-[12px] uppercase tracking-widest text-white transition-all duration-300 hover:shadow-red-glow"
                     style={{ background: 'linear-gradient(135deg, #ff2d55, #93000a)' }}>
                     <Zap size={14} /> Execute Takedown

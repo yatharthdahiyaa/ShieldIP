@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Globe, Radio, Wifi, AlertTriangle } from 'lucide-react';
+import { Globe, Radio, Wifi, AlertTriangle, WifiOff } from 'lucide-react';
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps';
 import { pageVariants } from '../utils/animations';
 import useViolationsQuery from '../hooks/useViolations';
@@ -17,7 +17,7 @@ const REGION_COORDS = {
 };
 
 export default function Monitor() {
-  const { data: violations } = useViolationsQuery();
+  const { data: violations, isLoading, isError, dataUpdatedAt } = useViolationsQuery();
   const vios = violations || [];
   const [hoveredMarker, setHoveredMarker] = useState(null);
 
@@ -37,6 +37,10 @@ export default function Monitor() {
 
   const criticalCount = vios.filter((v) => v.risk_score > 80).length;
 
+  const lastUpdated = dataUpdatedAt
+    ? new Date(dataUpdatedAt).toLocaleTimeString()
+    : null;
+
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6">
       <div className="flex items-end justify-between">
@@ -44,7 +48,9 @@ export default function Monitor() {
           <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
             <Radio size={22} className="text-cyan" /> Global Monitor
           </h1>
-          <p className="text-[13px] mt-1" style={{ color: '#555' }}>Real-time threat detection across all platforms</p>
+          <p className="text-[13px] mt-1" style={{ color: '#555' }}>
+            Violation hotspot map — data from backend API (polls every 10s)
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px]"
@@ -59,6 +65,30 @@ export default function Monitor() {
           </div>
         </div>
       </div>
+
+      {/* Connection status banner */}
+      {isError ? (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-[12px]"
+             style={{ background: 'rgba(255,45,85,0.06)', border: '1px solid rgba(255,45,85,0.15)', color: '#ff2d55' }}>
+          <WifiOff size={14} />
+          <span className="font-semibold">Live monitoring not connected</span>
+          <span className="text-[#888] font-normal">— backend API unreachable. Configure your API endpoint in Settings.</span>
+        </div>
+      ) : !isLoading && vios.length === 0 ? (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-[12px]"
+             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#888' }}>
+          <WifiOff size={14} />
+          <span className="font-semibold">No violations detected</span>
+          <span className="text-[#555]">— monitoring is active but no data returned from the API.</span>
+        </div>
+      ) : lastUpdated && (
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-[11px]"
+             style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.1)', color: '#555' }}>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#16ff9e] animate-pulse" />
+          Data last fetched from API at <span className="text-[#888] font-mono ml-1">{lastUpdated}</span>
+          <span className="ml-auto text-[#444]">Auto-refreshes every 10s</span>
+        </div>
+      )}
 
       <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center gap-3 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -112,7 +142,7 @@ export default function Monitor() {
               {spot.violations.slice(0, 3).map((v) => (
                 <div key={v.violation_id} className="flex items-center justify-between text-[11px]">
                   <span className="text-[#888]">{v.platform} — {v.violation_id}</span>
-                  <span className={`font-bold ${v.risk_score > 80 ? 'text-primary' : v.risk_score > 55 ? 'text-orange-400' : 'text-[#888]'}`}>{v.risk_score}%</span>
+                  <span className={`font-bold ${v.risk_score > 80 ? 'text-primary' : v.risk_score > 55 ? 'text-orange-400' : 'text-[#888]'}`}>{Number(v.risk_score).toFixed(1)}%</span>
                 </div>
               ))}
             </div>

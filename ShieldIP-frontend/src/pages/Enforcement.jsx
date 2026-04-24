@@ -31,7 +31,7 @@ export default function Enforcement() {
     setNoticeText('');
     try {
       const { GoogleGenerativeAI } = await import('@google/generative-ai');
-      const key = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyAqbT94d9afcgGf8h11ZBA7ToDIBxXaZY0';
+      const key = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyBHLF5MEFK0uaVyB5_xx4kHBBXTmF-V6S0';
       if (!key || !action.usesAI) {
         setNoticeText(action.usesAI
           ? `[GENERATED] DMCA Takedown Notice\n\nPlatform: ${violation.platform}\nViolation ID: ${violation.violation_id}\nConfidence: ${Math.round((violation.match_confidence || 0.9) * 100)}%\n\nUnder 17 U.S.C. 512(c), we request immediate removal of the infringing content identified above. The intellectual property is registered and verified via pHash fingerprinting.\n\nFailure to comply within 48 hours may result in further legal action.`
@@ -43,7 +43,10 @@ export default function Enforcement() {
       const prompt = `Draft a formal ${action.label} notice for this IP violation:\n${JSON.stringify(violation)}\n\nBe professional and legally thorough.`;
       const result = await model.generateContent(prompt);
       setNoticeText(result.response.text());
-    } catch { setNoticeText('Draft generation failed. Using template notice.'); }
+    } catch (err) { 
+      console.error('[Gemini] Enforcement generation failed:', err);
+      setNoticeText(`AI analysis failed: ${err.message}`); 
+    }
     finally { setGenerating(false); }
   }, []);
 
@@ -74,7 +77,7 @@ export default function Enforcement() {
               <span className={`w-2 h-2 rounded-full ${v.risk_score > 80 ? 'bg-primary' : 'bg-orange-400'}`} />
               <span className="text-[12px] text-white font-medium">{v.platform}</span>
               <span className="font-mono text-[10px] text-[#555]">{v.violation_id}</span>
-              <span className="ml-auto font-mono text-[11px] text-[#888]">{v.risk_score}%</span>
+              <span className="ml-auto font-mono text-[11px] text-[#888]">{Number(v.risk_score).toFixed(1)}%</span>
             </button>
           ))}
         </div>

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart2, Globe, TrendingUp, Shield, DollarSign, Activity, AlertTriangle, ArrowUpRight, Zap, Download, Calendar } from 'lucide-react';
+import { BarChart2, Globe, TrendingUp, Shield, DollarSign, Activity, AlertTriangle, ArrowUpRight, Download, Calendar } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, Legend, PieChart, Pie, Cell } from 'recharts';
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import { pageVariants, staggerContainer, staggerItem } from '../utils/animations';
@@ -8,21 +8,15 @@ import useViolationsQuery from '../hooks/useViolations';
 import { useAnalyticsSummary, useAnalyticsByPlatform } from '../hooks/useAnalytics';
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
-const HOTSPOTS = [
-  { name: 'New York', coordinates: [-74.006, 40.7128], count: 42 },
-  { name: 'London', coordinates: [-0.1278, 51.5074], count: 35 },
-  { name: 'Tokyo', coordinates: [139.6917, 35.6895], count: 58 },
-  { name: 'Mumbai', coordinates: [72.8777, 19.076], count: 29 },
-  { name: 'Sao Paulo', coordinates: [-46.6333, -23.5505], count: 22 },
-  { name: 'Seoul', coordinates: [126.978, 37.566], count: 44 },
-];
 
-const WEEKLY_DATA = [
-  { day: 'Mon', violations: 12, resolved: 8 }, { day: 'Tue', violations: 19, resolved: 13 },
-  { day: 'Wed', violations: 27, resolved: 22 }, { day: 'Thu', violations: 23, resolved: 19 },
-  { day: 'Fri', violations: 34, resolved: 28 }, { day: 'Sat', violations: 18, resolved: 15 },
-  { day: 'Sun', violations: 9, resolved: 7 },
-];
+const REGION_COORDS = {
+  'North America': [-95.71, 37.09],
+  'Europe':        [10.45, 51.17],
+  'Asia Pacific':  [114.17, 22.32],
+  'South America': [-51.93, -14.23],
+  'Global':        [0, 20],
+  'Africa':        [21.76, 1.65],
+};
 
 const TOOLTIP_STYLE = {
   contentStyle: { background: '#131313', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', fontFamily: 'JetBrains Mono', fontSize: '11px' },
@@ -45,7 +39,27 @@ export default function Analytics() {
   const platforms = platformData || [];
 
   const pieData = useMemo(() => platforms.slice(0, 6).map((p) => ({ name: p.platform, value: p.violations || p.violation_count || 0 })), [platforms]);
-  const resolveRate = stats.violations_this_week > 0 ? Math.round((stats.resolved_this_week / stats.violations_this_week) * 100) : 0;
+  const resolveRate = stats.violations_this_week > 0 ? Math.min(100, Math.round((stats.resolved_this_week / stats.violations_this_week) * 100)) : 0;
+
+  // Build weekly chart from platforms (violations by platform as proxy for distribution)
+  const weeklyChartData = useMemo(() => platforms.length > 0
+    ? platforms.map(p => ({
+        day: p.platform.slice(0, 3),
+        violations: p.violations || 0,
+        resolved: Math.round((p.violations || 0) * (stats.dmca_success_rate || 0.7)),
+      }))
+    : [], [platforms, stats.dmca_success_rate]);
+
+  // Build live hotspots from violations (grouped by region)
+  const hotspots = useMemo(() => {
+    const byRegion = {};
+    vios.forEach(v => {
+      const r = v.region || 'Global';
+      if (!byRegion[r]) byRegion[r] = { name: r, count: 0, coords: REGION_COORDS[r] || REGION_COORDS['Global'] };
+      byRegion[r].count++;
+    });
+    return Object.values(byRegion);
+  }, [vios]);
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6">
@@ -86,7 +100,8 @@ export default function Analytics() {
       <Card className="overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
           <Globe size={14} className="text-primary" />
-          <h3 className="font-display font-bold text-[14px] text-white">Global Violation Hotspots</h3>
+          <h3 className="font-display font-bold text-[14px] text-white">Violation Hotspots by Region</h3>
+          <span className="ml-auto text-[10px] text-[#555] font-mono">Live — from API violations data</span>
         </div>
         <div style={{ background: '#050505', height: 340 }}>
           <ComposableMap projectionConfig={{ scale: 148 }} style={{ width: '100%', height: '100%' }}>
@@ -96,9 +111,9 @@ export default function Analytics() {
                   style={{ default: { outline: 'none' }, hover: { fill: '#1f1f1f', outline: 'none' }, pressed: { outline: 'none' } }} />
               ))}
             </Geographies>
-            {HOTSPOTS.map(({ name, coordinates, count }) => (
-              <Marker key={name} coordinates={coordinates}>
-                <circle r={Math.max(5, Math.min(count / 5, 16))} fill="#ff2d55" fillOpacity={0.7} stroke="rgba(255,45,85,0.3)" strokeWidth={2} />
+            {hotspots.map(({ name, count, coords }) => (
+              <Marker key={name} coordinates={coords}>
+                <circle r={Math.max(5, Math.min(count * 3, 18))} fill="#ff2d55" fillOpacity={0.7} stroke="rgba(255,45,85,0.3)" strokeWidth={2} />
                 <title>{name}: {count} violations</title>
               </Marker>
             ))}
@@ -110,10 +125,12 @@ export default function Analytics() {
         <Card className="p-6 xl:col-span-2">
           <div className="flex items-center gap-2 mb-5">
             <TrendingUp size={14} className="text-secondary" />
-            <h3 className="font-display font-bold text-[14px] text-white">Weekly Trends</h3>
+            <h3 className="font-display font-bold text-[14px] text-white">Violations by Platform</h3>
+            <span className="ml-auto text-[10px] text-[#555] font-mono">Live — API data</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={WEEKLY_DATA} margin={{ top: 4, right: 4, left: -22, bottom: 4 }}>
+            {weeklyChartData.length > 0 ? (
+            <AreaChart data={weeklyChartData} margin={{ top: 4, right: 4, left: -22, bottom: 4 }}>
               <defs>
                 <linearGradient id="aR" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ff2d55" stopOpacity={0.2} /><stop offset="95%" stopColor="#ff2d55" stopOpacity={0} /></linearGradient>
                 <linearGradient id="aG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#16ff9e" stopOpacity={0.15} /><stop offset="95%" stopColor="#16ff9e" stopOpacity={0} /></linearGradient>
@@ -125,6 +142,11 @@ export default function Analytics() {
               <Area type="monotone" dataKey="violations" stroke="#ff2d55" strokeWidth={2} fill="url(#aR)" dot={{ fill: '#ff2d55', r: 3, strokeWidth: 0 }} />
               <Area type="monotone" dataKey="resolved" stroke="#16ff9e" strokeWidth={2} fill="url(#aG)" dot={{ fill: '#16ff9e', r: 3, strokeWidth: 0 }} />
             </AreaChart>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-[12px] text-[#444]">No platform data available yet</p>
+              </div>
+            )}
           </ResponsiveContainer>
         </Card>
 

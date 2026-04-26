@@ -12,9 +12,12 @@ GEMINI_API_KEY="${GEMINI_API_KEY:?ERROR: Set GEMINI_API_KEY before running this 
 REGION="${REGION:-us-central1}"
 REPO_NAME="shieldip"
 
+PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')
+
 echo "============================================"
 echo "  ShieldIP Backend — Setup & Deploy"
 echo "  Project: ${PROJECT_ID}"
+echo "  Number:  ${PROJECT_NUMBER}"
 echo "  Region:  ${REGION}"
 echo "============================================"
 
@@ -65,6 +68,7 @@ terraform init -input=false
 terraform apply \
   -auto-approve \
   -var="project_id=${PROJECT_ID}" \
+  -var="project_number=${PROJECT_NUMBER}" \
   -var="region=${REGION}" \
   -var="gemini_api_key=${GEMINI_API_KEY}"
 

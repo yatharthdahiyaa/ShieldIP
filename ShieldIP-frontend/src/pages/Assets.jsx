@@ -36,8 +36,8 @@ export default function Assets() {
   const assets = [...localAssets, ...remoteAssets].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
 
   const handleFile = (f) => {
-    if (!f?.type.startsWith('image/')) {
-      addToast({ type: 'error', title: 'Invalid file', message: 'Please upload an image file.' });
+    if (!f?.type.startsWith('image/') && !f?.type.startsWith('video/')) {
+      addToast({ type: 'error', title: 'Invalid file', message: 'Please upload an image or video file.' });
       return;
     }
     setError(null);
@@ -109,17 +109,21 @@ export default function Assets() {
             onDrop={(e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
             onClick={() => document.getElementById('assetFileInput').click()}
           >
-            <input type="file" id="assetFileInput" className="hidden" accept="image/*" onChange={(e) => e.target.files[0] && handleFile(e.target.files[0])} />
+            <input type="file" id="assetFileInput" className="hidden" accept="image/*,video/*" onChange={(e) => e.target.files[0] && handleFile(e.target.files[0])} />
             <CloudUpload size={32} className={dragging ? 'text-cyan' : 'text-[#333]'} />
             <div>
-              <p className="text-[15px] font-semibold text-white">{dragging ? 'Release to upload' : 'Drag & drop your image'}</p>
-              <p className="text-[12px] text-[#555] mt-1">or <span className="text-cyan cursor-pointer">click to browse</span> — PNG, JPG, JPEG</p>
+              <p className="text-[15px] font-semibold text-white">{dragging ? 'Release to upload' : 'Drag & drop your asset'}</p>
+              <p className="text-[12px] text-[#555] mt-1">or <span className="text-cyan cursor-pointer">click to browse</span> — PNG, JPG, JPEG, MP4, MOV, AVI</p>
             </div>
           </div>
         ) : (
           <div className="flex items-start gap-5 p-5 rounded-xl animate-void-in" style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.15)' }}>
             <div className="relative shrink-0">
+              {file?.type.startsWith('video/') ? (
+              <video src={preview} className="w-24 h-24 object-cover rounded-lg" style={{ border: '1px solid rgba(6,182,212,0.3)' }} muted />
+            ) : (
               <img src={preview} alt="preview" className="w-24 h-24 object-cover rounded-lg" style={{ border: '1px solid rgba(6,182,212,0.3)' }} />
+            )}
               <button onClick={clearFile} className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center bg-surface border border-white/10 text-[#888] hover:text-white"><X size={12} /></button>
             </div>
             <div className="flex-1 space-y-3">

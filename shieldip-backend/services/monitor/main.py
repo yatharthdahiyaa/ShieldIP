@@ -178,8 +178,11 @@ def _find_web_violations(asset_id: str, gcs_uri: str, asset_owner: str, fp_data:
                 continue
 
             frame_base = 85.0
-            if response.web_detection.web_images:
-                scores = [img.score * 100 for img in response.web_detection.web_images[:5] if img.score]
+            full_matches = list(response.web_detection.full_matching_images or [])
+            partial_matches = list(response.web_detection.partial_matching_images or [])
+            match_imgs = (full_matches + partial_matches)[:5]
+            if match_imgs:
+                scores = [img.score * 100 for img in match_imgs if img.score]
                 if scores:
                     frame_base = round(sum(scores) / len(scores), 2)
 

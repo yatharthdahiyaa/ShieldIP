@@ -38,7 +38,7 @@ logger.handlers = [handler]
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
 BQ_DATASET = os.environ.get("BIGQUERY_DATASET", "shieldip_analytics")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 # ─────────────────────────────────────────────
 # GCP Clients
@@ -298,12 +298,38 @@ def _process_violation(violation_id: str):
     # Write updated record to BigQuery (insert new row with is_latest=true pattern)
     _write_scored_violation_to_bq(violation, update_data)
 
+    # Write threat alert for critical/high violations
+    _write_threat_alert(violation, threat_level, total_risk)
+
     # Spread velocity alert: if > 5 violations for this asset in last 30 min
     _check_velocity_alert(violation)
 
 
+def _deliver_alert(alert_type: str, title: str, message: str, metadata: dict):
+    """
+    Write an alert to Firestore /alerts collection for the frontend to consume.
+    Also publishes the legacy Pub/Sub event for downstream consumers.
+    """
+    import uuid
+    try:
+        alert_id = str(uuid.uuid4())
+        alert_doc = {
+            "alert_id": alert_id,
+            "type": alert_type,
+            "title": title,
+            "message": message,
+            "metadata": metadata,
+            "read": False,
+            "created_at": _now_iso(),
+        }
+        firestore_client.collection("alerts").document(alert_id).set(alert_doc)
+        logger.info(f"Alert written to Firestore: {alert_type} — {title}")
+    except Exception as exc:
+        logger.warning(f"Failed to write alert to Firestore: {exc}")
+
+
 def _check_velocity_alert(violation: dict):
-    """If > 5 violations for this asset in the last 30 min, publish velocity-alert."""
+    """If > 5 violations for this asset in the last 30 min, publish velocity-alert and write to alerts collection."""
     try:
         from datetime import timedelta
         asset_id = violation.get("asset_id")
@@ -324,6 +350,13 @@ def _check_velocity_alert(violation: dict):
             firestore_client.collection("violations").document(
                 violation.get("violation_id")
             ).update({"velocity_alert": True})
+            # Write to Firestore alerts collection for frontend
+            _deliver_alert(
+                alert_type="velocity",
+                title="Rapid Spread Detected",
+                message=f"Asset {asset_id} has {count} violations in the last 30 minutes (velocity: {velocity}/hr). Immediate review recommended.",
+                metadata={"asset_id": asset_id, "violations_last_30min": count, "spread_velocity": velocity},
+            )
             # Publish velocity-alert to Pub/Sub
             topic_path = publisher.topic_path(PROJECT_ID, "velocity-alert")
             publisher.publish(
@@ -337,6 +370,31 @@ def _check_velocity_alert(violation: dict):
             logger.info(f"Published velocity-alert for asset {asset_id}")
     except Exception as exc:
         logger.warning(f"Velocity alert check failed: {exc}")
+
+
+def _write_threat_alert(violation: dict, threat_level: str, total_risk: int):
+    """Write a critical/high threat alert to the alerts collection."""
+    if threat_level not in ("critical", "high"):
+        return
+    try:
+        _deliver_alert(
+            alert_type="threat",
+            title=f"{threat_level.capitalize()} Threat Detected",
+            message=(
+                f"Violation on {violation.get('platform', 'unknown')} in "
+                f"{violation.get('region', 'unknown')} scored {total_risk}/100 risk. "
+                f"URL: {violation.get('url', 'N/A')}"
+            ),
+            metadata={
+                "violation_id": violation.get("violation_id"),
+                "asset_id": violation.get("asset_id"),
+                "platform": violation.get("platform"),
+                "risk_score": total_risk,
+                "threat_level": threat_level,
+            },
+        )
+    except Exception as exc:
+        logger.warning(f"Failed to write threat alert: {exc}")
 
 
 def _write_scored_violation_to_bq(violation: dict, scores: dict):

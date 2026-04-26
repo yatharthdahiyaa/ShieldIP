@@ -38,7 +38,7 @@ PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
 EVIDENCE_BUCKET = os.environ.get("GCS_EVIDENCE_BUCKET", "")
 BQ_DATASET = os.environ.get("BIGQUERY_DATASET", "shieldip_analytics")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 # ─────────────────────────────────────────────
 # GCP Clients

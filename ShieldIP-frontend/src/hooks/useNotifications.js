@@ -1,27 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchViolations } from '../services/api';
+import { fetchAlerts } from '../services/api';
 import useAppStore from '../store/useAppStore';
 import { useEffect } from 'react';
 
 export default function useNotifications() {
-  const { readNotificationIds, setUnreadCount } = useAppStore();
+  const { setUnreadCount } = useAppStore();
 
   const query = useQuery({
-    queryKey: ['notifications'],
-    queryFn: () => fetchViolations({ status: 'new' }),
+    queryKey: ['alerts'],
+    queryFn: () => fetchAlerts({ limit: 50 }),
     refetchInterval: 15000,
     staleTime: 8000,
     placeholderData: (prev) => prev,
     select: (data) => {
-      if (data?.data && Array.isArray(data.data)) return data.data;
-      if (Array.isArray(data)) return data;
-      return [];
+      const alerts = data?.data?.alerts || data?.alerts || [];
+      return alerts;
     },
     retry: 1,
   });
 
   const items = query.data || [];
-  const unread = items.filter((n) => !readNotificationIds.has(n.violation_id));
+  const unread = items.filter((n) => !n.read);
 
   useEffect(() => {
     setUnreadCount(unread.length);

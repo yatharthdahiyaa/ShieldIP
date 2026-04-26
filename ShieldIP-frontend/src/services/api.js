@@ -7,10 +7,11 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  // WARNING: sessionStorage is accessible to any JS running on the page (XSS risk).
+  // In production, migrate to httpOnly cookie-based auth and remove this interceptor.
   const token = sessionStorage.getItem('GOOGLE_ID_TOKEN');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (!token) return config; // don't attach empty Bearer header
+  config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
@@ -38,5 +39,9 @@ export const fetchChain = (chainId) => api.get(`/chains/${chainId}`).then((r) =>
 export const fetchChainTimeline = (chainId) => api.get(`/chains/${chainId}/timeline`).then((r) => r.data);
 export const fetchAssetChains = (assetId) => api.get(`/assets/${assetId}/chains`).then((r) => r.data);
 export const fetchTraceabilitySummary = () => api.get('/analytics/traceability-summary').then((r) => r.data);
+
+export const fetchAlerts = (params) => api.get('/alerts', { params }).then((r) => r.data);
+export const markAlertRead = (id) => api.patch(`/alerts/${id}/read`).then((r) => r.data);
+export const markAllAlertsRead = () => api.patch('/alerts/read-all').then((r) => r.data);
 
 export default api;

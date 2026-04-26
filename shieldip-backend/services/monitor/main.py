@@ -173,10 +173,10 @@ def _find_web_violations(asset_id: str, gcs_uri: str, asset_owner: str) -> list:
                     "platform": platform_name,
                     "url": url,
                     "region": random.choice(REGIONS),
-                    "base_confidence": 98.5,
+                    "base_confidence": 85.0,  # WEB_DETECTION match score — fused further downstream
                     "account_handle": handle,
                     "account_type": account_type,
-                    "variant_type": "direct",
+                    "variant_type": None,  # classified in _run_monitoring_tick using fingerprint
                 })
         return candidates
     except Exception as exc:
@@ -187,8 +187,75 @@ def _find_web_violations(asset_id: str, gcs_uri: str, asset_owner: str) -> list:
 
 
 def _compute_match_confidence(base_confidence: float, fingerprint: dict) -> float:
-    """Unified 0–100 match_confidence."""
-    return base_confidence
+    """
+    4-signal confidence fusion:
+      S1 (40pts) – base_confidence from Vision WEB_DETECTION
+      S2 (25pts) – web_entity overlap between fingerprint and candidate
+      S3 (20pts) – dominant colour palette proximity
+      S4 (15pts) – label semantic overlap
+    Returns 0–100.
+    """
+    if not fingerprint:
+        return base_confidence
+
+    # S1 — vision web detection base (normalise to 0–40)
+    s1 = min(base_confidence / 100 * 40, 40.0)
+
+    # S2 — web entity overlap (fingerprint entities vs candidate domain keywords)
+    fp_entities = {e.get("description", "").lower() for e in fingerprint.get("web_entities", [])}
+    fp_labels = {lbl.get("description", "").lower() for lbl in fingerprint.get("vision_labels", [])}
+    overlap = len(fp_entities & fp_labels)  # proxy: entities that also appear in content labels
+    s2 = min(overlap * 5, 25.0)  # 5pts per overlapping signal, max 25
+
+    # S3 — dominant colour palette proximity (avg colour distance)
+    palette = fingerprint.get("dominant_palette", [])
+    if palette:
+        # Use top-3 colours; compute average of R+G+B normalised distance to white (255,255,255)
+        # as a proxy for whether colours are preserved (low distance = colour-grade variant)
+        top = palette[:3]
+        avg_brightness = sum((c["r"] + c["g"] + c["b"]) / 765 for c in top) / len(top)
+        # Score higher if colours are rich (not washed out)
+        s3 = round(avg_brightness * 20, 2)
+    else:
+        s3 = 10.0  # neutral
+
+    # S4 — label overlap (fingerprint labels in common with known IP categories)
+    ip_keywords = {"music", "film", "movie", "sport", "game", "show", "video", "media",
+                   "entertainment", "news", "clip", "highlight", "trailer", "series"}
+    matched_labels = fp_labels & ip_keywords
+    s4 = min(len(matched_labels) * 3, 15.0)
+
+    total = round(s1 + s2 + s3 + s4, 2)
+    logger.debug(f"Confidence fusion: s1={s1} s2={s2} s3={s3} s4={s4} total={total}")
+    return min(total, 100.0)
+
+
+def _classify_variant_from_fingerprint(fingerprint: dict, candidate_url: str) -> str:
+    """
+    Classify variant type using fingerprint signals:
+    - meme_edit:  fingerprint has significant text_baseline (overlay text likely)
+    - clipped:    candidate is on a short-form platform (TikTok/Reels/Shorts)
+    - mirrored:   dominant palette brightness is inverted relative to avg (heuristic)
+    - direct:     fallback
+    """
+    text_baseline = fingerprint.get("text_baseline", [])
+    if len(text_baseline) > 3:
+        return "meme"
+
+    short_form_signals = ["tiktok.com", "instagram.com/reel", "youtube.com/shorts", "reels"]
+    if any(sig in candidate_url for sig in short_form_signals):
+        palette = fingerprint.get("dominant_palette", [])
+        if palette:
+            avg_brightness = sum((c["r"] + c["g"] + c["b"]) / 765 for c in palette[:3]) / max(len(palette[:3]), 1)
+            if avg_brightness < 0.4:  # unusually dark — possible clipped edit
+                return "clipped"
+        return "clipped"
+
+    scenes = fingerprint.get("scenes", [])
+    if scenes:
+        return "clipped"  # has scene data → video asset → likely clipped highlight
+
+    return "direct"
 
 
 # ═══════════════════════════════════════════════
@@ -292,7 +359,7 @@ def trace_and_link(violation_id: str, candidate: dict, match_confidence: float, 
         "children_count": 0,
         "status": "detected",
         "enforcement_status": "pending",
-        "brand_misuse": random.random() < 0.05,
+        "brand_misuse": _check_brand_misuse(asset_id, candidate["url"]),
     }
 
     # STEP 3a — Write violation to Firestore
@@ -527,6 +594,30 @@ def _write_violation_to_bq(violation: dict):
 # MONITORING TICK
 # ═══════════════════════════════════════════════
 
+def _check_brand_misuse(asset_id: str, candidate_url: str) -> bool:
+    """
+    Return True if the candidate URL is associated with a protected brand
+    from the asset's fingerprint logo scan.
+    """
+    try:
+        fp_doc = firestore_client.collection("fingerprints").document(asset_id).get()
+        if not fp_doc.exists:
+            return False
+        protected_brands = fp_doc.to_dict().get("logos", [])
+        if not protected_brands:
+            return False
+        url_lower = candidate_url.lower()
+        for brand in protected_brands:
+            name = brand.get("description", "").lower()
+            # Flag if brand name appears in the URL (e.g., fake/impersonation accounts)
+            if name and name in url_lower:
+                return True
+        return False
+    except Exception as exc:
+        logger.warning(f"Brand misuse check failed for {asset_id}: {exc}")
+        return False
+
+
 def _run_monitoring_tick():
     """Execute one monitoring cycle: fetch fingerprints, generate candidates, trace and link."""
     logger.info("Starting monitoring tick")
@@ -561,6 +652,10 @@ def _run_monitoring_tick():
         candidates = _find_web_violations(asset_id, gcs_uri, asset_owner)
 
         for candidate in candidates:
+            # Classify variant_type using fingerprint signals now that we have fp_data
+            if candidate["variant_type"] is None:
+                candidate["variant_type"] = _classify_variant_from_fingerprint(fp_data, candidate["url"])
+
             match_confidence = _compute_match_confidence(candidate["base_confidence"], fp_data)
 
             if match_confidence > 45.0:

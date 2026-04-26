@@ -603,3 +603,58 @@ def traceability_summary():
             "fastest_chain": None,
             "platforms_reached_today": [],
         })
+
+
+# ─────────────────────────────────────────────
+# ALERTS
+# ─────────────────────────────────────────────
+
+@app.get("/alerts")
+def get_alerts(limit: int = Query(default=50, le=200), unread_only: bool = Query(default=False)):
+    """Return recent alerts from Firestore /alerts collection, newest first."""
+    try:
+        query = firestore_client.collection("alerts").order_by(
+            "created_at", direction=firestore.Query.DESCENDING
+        )
+        if unread_only:
+            query = query.where("read", "==", False)
+        docs = list(query.limit(limit).stream())
+        alerts = [doc.to_dict() for doc in docs]
+        return _response(data={"alerts": alerts, "total": len(alerts)})
+    except Exception as exc:
+        logger.error(f"get_alerts failed: {exc}", exc_info=True)
+        return _response(data={"alerts": [], "total": 0})
+
+
+@app.patch("/alerts/{alert_id}/read")
+def mark_alert_read(alert_id: str):
+    """Mark a single alert as read."""
+    try:
+        ref = firestore_client.collection("alerts").document(alert_id)
+        if not ref.get().exists:
+            raise HTTPException(status_code=404, detail="Alert not found")
+        ref.update({"read": True})
+        return _response(data={"alert_id": alert_id, "read": True})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"mark_alert_read failed: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.patch("/alerts/read-all")
+def mark_all_alerts_read():
+    """Mark all unread alerts as read."""
+    try:
+        unread = firestore_client.collection("alerts").where("read", "==", False).stream()
+        batch = firestore_client.batch()
+        count = 0
+        for doc in unread:
+            batch.update(doc.reference, {"read": True})
+            count += 1
+        if count:
+            batch.commit()
+        return _response(data={"marked_read": count})
+    except Exception as exc:
+        logger.error(f"mark_all_alerts_read failed: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))

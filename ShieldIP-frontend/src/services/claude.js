@@ -1,10 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyBHLF5MEFK0uaVyB5_xx4kHBBXTmF-V6S0';
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
 // Create Gemini client
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-2.0-flash" }) : null;
+const model = genAI ? genAI.getGenerativeModel({ model: "gemini-2.5-flash" }) : null;
 
 /**
  * Analyzes a given content violation using Gemini.

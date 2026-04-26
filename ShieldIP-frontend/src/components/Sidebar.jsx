@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Shield, LayoutDashboard, Radio, Search, Zap, BarChart3, Bell, Settings, FolderOpen, ClipboardList, User, KeyRound, HelpCircle, ChevronLeft, ChevronRight, GitBranch } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useAppStore from '../store/useAppStore';
 import { fetchHealth } from '../services/api';
+import { MobileMenuContext } from '../context/MobileMenuContext';
 
 const MAIN_NAV = [
   { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
@@ -70,6 +71,7 @@ function SectionLabel({ text, collapsed }) {
 
 export default function Sidebar() {
   const { sidebarCollapsed, setSidebarCollapsed } = useAppStore();
+  const { open: mobileOpen, setOpen: setMobileOpen } = useContext(MobileMenuContext);
   const [isLive, setIsLive] = useState(true);
 
   useEffect(() => {
@@ -81,10 +83,13 @@ export default function Sidebar() {
 
   return (
     <motion.aside
-      animate={{ width: sidebarCollapsed ? 60 : 240 }}
+      animate={{ width: sidebarCollapsed ? 60 : 240, x: 0 }}
       transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="shrink-0 h-full flex flex-col relative z-20 overflow-hidden"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      className={`shrink-0 h-full flex flex-col relative z-40 overflow-y-auto md:relative md:translate-x-0 fixed transition-transform duration-300 ${
+        mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      }`}
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      onClick={() => { if (window.innerWidth < 768) setMobileOpen(false); }}
     >
       <div className={`flex items-center gap-3 py-5 ${sidebarCollapsed ? 'justify-center px-2' : 'px-5'}`}
            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -99,7 +104,7 @@ export default function Sidebar() {
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-2">
+      <nav className="flex-1 py-2">
         <SectionLabel text="Main" collapsed={sidebarCollapsed} />
         {MAIN_NAV.map((item) => <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} />)}
         <SectionLabel text="System" collapsed={sidebarCollapsed} />

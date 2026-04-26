@@ -2,16 +2,75 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ReactFlow, Background, Controls, MiniMap, MarkerType } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useQuery } from '@tanstack/react-query';
-import {
-  GitBranch, List, Network, Clock, Eye, ExternalLink,
-  Zap, ChevronDown, ChevronRight, Scissors, FlipHorizontal2,
-  Laugh, Copy,
-} from 'lucide-react';
+import { GitBranch, List, Network, Clock, Eye, ExternalLink, ChevronDown, ChevronRight, AlertCircle, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
-import { fetchChains, fetchChain, fetchChainTimeline } from '../services/api';
 import { pageVariants } from '../utils/animations';
+import useViolationsQuery from '../hooks/useViolations';
+
+// ─── CONSTANTS ───────────────────────────────────────
+const DEPTH_COLORS = ['#ff2d55', '#f59e0b', '#facc15', '#6b7280'];
+const VARIANT_EMOJI = { direct: '📋', clipped: '✂️', meme: '😂', mirrored: '🪞', direct_reupload: '📋', clipped_highlight: '✂️', meme_edit: '😂' };
+const PLATFORM_COLORS = {
+  YouTube: '#ff0000', TikTok: '#69c9d0', Instagram: '#e1306c',
+  X: '#1da1f2', Twitter: '#1da1f2', Facebook: '#1877f2', Twitch: '#9146ff',
+  Telegram: '#0088cc', Dailymotion: '#00d2f3', WhatsApp: '#25d366',
+};
+
+// ─── DATA HELPERS ────────────────────────────────────
+
+/** Flatten an adjacency list (violations array) into a tree using parent_id */
+function buildTreeFromFlat(violations) {
+  const map = {};
+  violations.forEach(v => { map[v.violation_id] = { ...v, children: [] }; });
+  const roots = [];
+  violations.forEach(v => {
+    if (v.parent_id && map[v.parent_id]) {
+      map[v.parent_id].children.push(map[v.violation_id]);
+    } else {
+      roots.push(map[v.violation_id]);
+    }
+  });
+  // Sort children by time
+  function sortChildren(node) {
+    node.children.sort((a, b) => (a.time_from_origin_minutes || 0) - (b.time_from_origin_minutes || 0));
+    node.children.forEach(sortChildren);
+  }
+  roots.forEach(sortChildren);
+  return roots;
+}
+
+/** Build chains summary from flat violations list */
+function buildChainsFromViolations(violations) {
+  const groups = {};
+  violations.forEach(v => {
+    // Use chain_id if present; otherwise fall back to asset_id as synthetic chain
+    const cid = v.chain_id || `asset-chain-${v.asset_id || 'unknown'}`;
+    if (!groups[cid]) groups[cid] = [];
+    groups[cid].push(v);
+  });
+  return Object.entries(groups).map(([chain_id, vios]) => {
+    const origin = vios.find(v => v.is_origin) || vios.reduce((a, b) =>
+      new Date(a.detected_at) < new Date(b.detected_at) ? a : b
+    );
+    const ageHours = (Date.now() - new Date(origin.detected_at).getTime()) / 3600000;
+    const spread_velocity = ageHours > 0 ? +(vios.length / ageHours).toFixed(1) : 0;
+    const maxDepth = Math.max(0, ...vios.map(v => v.depth || 0));
+    const platforms = [...new Set(vios.map(v => v.platform).filter(Boolean))];
+    return {
+      chain_id,
+      asset_id: origin.asset_id || '',
+      asset_name: origin.asset_name || origin.asset_id || 'Unknown Asset',
+      origin_platform: origin.platform || 'Unknown',
+      origin_url: origin.url || '',
+      origin_detected_at: origin.detected_at,
+      total_nodes: vios.length,
+      max_depth: maxDepth,
+      platforms_reached: platforms,
+      spread_velocity,
+      violations: vios,
+    };
+  }).sort((a, b) => b.spread_velocity - a.spread_velocity);
+}
 
 function flattenTree(nodes, acc = []) {
   if (!nodes) return acc;
@@ -21,15 +80,6 @@ function flattenTree(nodes, acc = []) {
   }
   return acc;
 }
-
-// ─── CONSTANTS ──────────────────────────────
-const DEPTH_COLORS = ['#ff2d55', '#f59e0b', '#facc15', '#6b7280'];
-const VARIANT_EMOJI = { direct: '📋', clipped: '✂️', meme: '😂', mirrored: '🪞' };
-const PLATFORM_COLORS = {
-  YouTube: '#ff0000', TikTok: '#69c9d0', Instagram: '#e1306c',
-  X: '#1da1f2', Facebook: '#1877f2', Twitch: '#9146ff',
-  Telegram: '#0088cc', Dailymotion: '#00d2f3',
-};
 
 function fmtTime(mins) {
   if (mins === 0) return 'T+0';
@@ -51,41 +101,105 @@ function fmtDelta(mins) {
 // ═══════════════════════════════════════════════
 function ChainListTab({ chains, onSelectChain }) {
   const [expanded, setExpanded] = useState(null);
+
+  if (!chains.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <AlertCircle size={28} className="text-[#333] mb-3" />
+        <p className="text-[13px] text-[#555]">No violation chains detected yet.</p>
+        <p className="text-[11px] text-[#444] mt-1">Chains appear once violations share an asset_id or chain_id.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-2">
-      {chains.map((c) => (
-        <div key={c.chain_id} className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
-            onClick={() => setExpanded(expanded === c.chain_id ? null : c.chain_id)}>
-            {expanded === c.chain_id ? <ChevronDown size={14} className="text-[#555]" /> : <ChevronRight size={14} className="text-[#555]" />}
-            <span className="text-[13px] font-semibold text-white w-24" style={{ color: PLATFORM_COLORS[c.origin_platform] || '#fff' }}>{c.origin_platform}</span>
-            <span className="text-[12px] text-[#888] w-32">{formatDistanceToNow(new Date(c.origin_detected_at), { addSuffix: true })}</span>
-            <span className="font-mono text-[13px] text-white w-16 text-center">{c.max_depth}</span>
-            <div className="flex gap-1 flex-1">
-              {c.platforms_reached?.map((p) => (
-                <span key={p} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${PLATFORM_COLORS[p] || '#555'}20`, color: PLATFORM_COLORS[p] || '#888' }}>{p}</span>
-              ))}
+    <div className="overflow-y-auto space-y-1">
+      {/* Column headers */}
+      <div className="flex items-center gap-4 px-5 py-2 text-[10px] uppercase tracking-widest text-[#444]">
+        <span className="w-4" />
+        <span className="w-36">Asset</span>
+        <span className="w-28">Origin Platform</span>
+        <span className="w-28">First Seen</span>
+        <span className="w-12 text-center">Depth</span>
+        <span className="w-14 text-center">Nodes</span>
+        <span className="flex-1">Platforms Reached</span>
+        <span className="w-20 text-right">Velocity</span>
+      </div>
+      {chains.map((c) => {
+        const originColor = PLATFORM_COLORS[c.origin_platform] || '#888';
+        const detectedAt = c.origin_detected_at ? new Date(c.origin_detected_at) : null;
+        const timeAgo = detectedAt && !isNaN(detectedAt) ? formatDistanceToNow(detectedAt, { addSuffix: true }) : '—';
+        return (
+          <div key={c.chain_id} className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center gap-4 px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
+              onClick={() => setExpanded(expanded === c.chain_id ? null : c.chain_id)}>
+              {expanded === c.chain_id
+                ? <ChevronDown size={13} className="text-[#555] shrink-0" />
+                : <ChevronRight size={13} className="text-[#555] shrink-0" />}
+
+              {/* Asset name */}
+              <div className="w-36 min-w-0">
+                <span className="text-[12px] font-semibold text-white block truncate">{c.asset_name || c.asset_id || '—'}</span>
+                <span className="text-[9px] text-[#444] font-mono">{c.chain_id?.slice(0, 10)}</span>
+              </div>
+
+              {/* Origin platform */}
+              <div className="w-28 min-w-0">
+                <span className="text-[12px] font-semibold truncate block" style={{ color: originColor }}>
+                  {c.origin_platform || 'Unknown'}
+                </span>
+              </div>
+
+              {/* Time */}
+              <span className="text-[11px] text-[#666] w-28 truncate">{timeAgo}</span>
+
+              {/* Depth */}
+              <span className="font-mono text-[12px] text-white w-12 text-center">{c.max_depth}</span>
+
+              {/* Nodes */}
+              <span className="font-mono text-[12px] text-white w-14 text-center">{c.total_nodes}</span>
+
+              {/* Platforms */}
+              <div className="flex gap-1 flex-1 flex-wrap">
+                {c.platforms_reached?.slice(0, 6).map((p) => (
+                  <span key={p} className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: `${PLATFORM_COLORS[p] || '#555'}20`, color: PLATFORM_COLORS[p] || '#777' }}>{p}</span>
+                ))}
+                {c.platforms_reached?.length > 6 && <span className="text-[9px] text-[#555]">+{c.platforms_reached.length - 6}</span>}
+              </div>
+
+              {/* Velocity */}
+              <span className="font-mono text-[12px] font-bold text-cyan w-20 text-right">{c.spread_velocity}/hr</span>
             </div>
-            <span className="font-mono text-[13px] font-bold text-cyan w-20 text-right">{c.spread_velocity}/hr</span>
+
+            <AnimatePresence>
+              {expanded === c.chain_id && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="px-5 pb-4 pt-3 border-t border-white/5 space-y-3">
+                    {c.origin_url && (
+                      <a href={c.origin_url} target="_blank" rel="noreferrer" className="text-[11px] text-cyan hover:underline flex items-center gap-1 truncate">
+                        <ExternalLink size={10} /> {c.origin_url}
+                      </a>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => onSelectChain(c.chain_id, 'tree')}
+                        className="text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-lg text-white"
+                        style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)' }}>
+                        Tree View
+                      </button>
+                      <button onClick={() => onSelectChain(c.chain_id, 'timeline')}
+                        className="text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-lg text-white"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        Timeline
+                      </button>
+                      <span className="ml-auto text-[10px] text-[#555] font-mono">{c.total_nodes} violation{c.total_nodes !== 1 ? 's' : ''} · {c.platforms_reached?.length} platform{c.platforms_reached?.length !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <AnimatePresence>
-            {expanded === c.chain_id && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="px-5 pb-4 flex items-center gap-4 border-t border-white/5 pt-3">
-                  <a href={c.origin_url} target="_blank" rel="noreferrer" className="text-[11px] text-cyan hover:underline flex items-center gap-1 truncate">
-                    <ExternalLink size={10} /> {c.origin_url}
-                  </a>
-                  <button onClick={() => onSelectChain(c.chain_id)}
-                    className="ml-auto text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-lg text-white transition-all hover:shadow-cyan-glow"
-                    style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)' }}>
-                    View Tree
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -93,116 +207,143 @@ function ChainListTab({ chains, onSelectChain }) {
 // ═══════════════════════════════════════════════
 // TAB 2 — TREE VIEW (react-flow)
 // ═══════════════════════════════════════════════
+
+/** Proper left-to-right tree layout: depth→x, subtree position→y */
 function buildFlowFromTree(tree, selectedId) {
   const nodes = [];
   const edges = [];
-  let yCounter = 0;
+  const X_GAP = 280;
+  const Y_GAP = 110;
 
-  function walk(node, parentFlowId, xOffset) {
+  function countLeaves(node) {
+    if (!node.children?.length) return 1;
+    return node.children.reduce((s, c) => s + countLeaves(c), 0);
+  }
+
+  function walk(node, parentId, depth, yStart) {
     const fid = node.violation_id;
-    const isOrigin = node.is_origin;
+    const isOrigin = node.is_origin || depth === 0;
     const isSelected = fid === selectedId;
-    const depthColor = DEPTH_COLORS[Math.min(node.depth, DEPTH_COLORS.length - 1)];
-    const w = isOrigin ? 220 : Math.max(180, 220 - node.depth * 20);
-    const h = isOrigin ? 70 : 56;
+    const depthColor = DEPTH_COLORS[Math.min(depth, DEPTH_COLORS.length - 1)];
+    const leaves = countLeaves(node);
+    const nodeY = yStart + ((leaves - 1) * Y_GAP) / 2;
 
     nodes.push({
       id: fid,
-      position: { x: xOffset, y: yCounter * 120 },
+      position: { x: depth * X_GAP + 40, y: nodeY },
       data: {
         label: (
           <div className="text-left">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              {isOrigin && <span className="text-[8px] uppercase font-bold tracking-widest text-primary">Origin</span>}
-              <span className="font-semibold text-[11px]" style={{ color: PLATFORM_COLORS[node.platform] || '#fff' }}>{node.platform}</span>
+            <div className="flex items-center gap-1.5 mb-1">
+              {isOrigin && <span className="text-[8px] uppercase font-bold tracking-widest" style={{ color: '#ff2d55' }}>Origin</span>}
+              <span className="font-semibold text-[11px]" style={{ color: PLATFORM_COLORS[node.platform] || '#fff' }}>
+                {node.platform || 'Unknown'}
+              </span>
               <span className="text-[10px]">{VARIANT_EMOJI[node.variant_type] || ''}</span>
             </div>
-            <div className="text-[10px] text-[#888]">@{node.account_handle}</div>
-            <div className="text-[10px] font-mono text-[#555]">{fmtTime(node.time_from_origin_minutes)}</div>
+            {node.account_handle && <div className="text-[10px] text-[#888]">@{node.account_handle}</div>}
+            <div className="text-[10px] font-mono text-[#555]">
+              {node.time_from_origin_minutes != null ? fmtTime(node.time_from_origin_minutes) : formatDistanceToNow(new Date(node.detected_at || Date.now()), { addSuffix: true })}
+            </div>
+            <div className="text-[10px] font-mono" style={{ color: depthColor }}>
+              {Number(node.match_confidence > 1 ? node.match_confidence : (node.match_confidence || 0) * 100).toFixed(0)}% match
+            </div>
           </div>
         ),
       },
       style: {
-        background: isOrigin ? 'rgba(255,45,85,0.12)' : `rgba(255,255,255,0.03)`,
-        border: isSelected ? `2px solid #06b6d4` : `2px solid ${depthColor}`,
+        background: isOrigin ? 'rgba(255,45,85,0.10)' : 'rgba(255,255,255,0.03)',
+        border: isSelected ? '2px solid #06b6d4' : `2px solid ${depthColor}`,
         borderRadius: '12px',
         padding: '10px 14px',
         color: '#fff',
-        width: w,
+        width: 200,
+        fontSize: 11,
       },
     });
 
-    if (parentFlowId) {
-      const timeDelta = node.time_from_origin_minutes;
+    if (parentId) {
       edges.push({
-        id: `e-${parentFlowId}-${fid}`,
-        source: parentFlowId,
+        id: `e-${parentId}-${fid}`,
+        source: parentId,
         target: fid,
         animated: true,
-        style: { stroke: depthColor, strokeDasharray: '6 3' },
-        label: fmtDelta(timeDelta),
-        labelStyle: { fill: '#888', fontSize: 9 },
+        style: { stroke: depthColor, strokeDasharray: '5 3' },
+        label: node.time_from_origin_minutes != null ? fmtDelta(node.time_from_origin_minutes) : '',
+        labelStyle: { fill: '#555', fontSize: 9 },
         markerEnd: { type: MarkerType.ArrowClosed, color: depthColor },
       });
     }
 
-    yCounter++;
-    if (node.children?.length) {
-      node.children.forEach((child, ci) => {
-        walk(child, fid, xOffset + 280);
-      });
-    }
+    let childY = yStart;
+    node.children?.forEach((child) => {
+      walk(child, fid, depth + 1, childY);
+      childY += countLeaves(child) * Y_GAP;
+    });
   }
 
-  if (tree?.length) tree.forEach((root) => walk(root, null, 40));
+  let yStart = 0;
+  tree?.forEach((root) => {
+    walk(root, null, 0, yStart);
+    yStart += countLeaves(root) * Y_GAP;
+  });
   return { nodes, edges };
 }
 
-function TreeViewTab({ chainId }) {
+function TreeViewTab({ chainViolations, chain }) {
   const [selectedNode, setSelectedNode] = useState(null);
+  const onNodeClick = useCallback((_, node) => setSelectedNode(node.id), []);
 
-  const { data: chainData } = useQuery({
-    queryKey: ['chain-tree', chainId],
-    queryFn: () => fetchChain(chainId),
-    enabled: !!chainId,
-    refetchInterval: 15000,
-    placeholderData: { data: {} },
-    select: (r) => r?.data || {},
-  });
-
-  const tree = chainData?.tree || [];
+  const tree = useMemo(() => buildTreeFromFlat(chainViolations || []), [chainViolations]);
   const flat = useMemo(() => flattenTree(tree), [tree]);
   const { nodes, edges } = useMemo(() => buildFlowFromTree(tree, selectedNode), [tree, selectedNode]);
   const selectedItem = flat.find((n) => n.violation_id === selectedNode);
 
-  const onNodeClick = useCallback((_, node) => setSelectedNode(node.id), []);
+  if (!chainViolations?.length) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center">
+        <AlertCircle size={28} className="text-[#333] mb-3" />
+        <p className="text-[13px] text-[#555]">Select a chain from the Chain List tab to view its tree.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-4 flex-1 min-h-0">
       <div className="flex-1 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <ReactFlow nodes={nodes} edges={edges} onNodeClick={onNodeClick} fitView proOptions={{ hideAttribution: true }}>
-          <Background color="#222" gap={30} size={1} />
-          <Controls style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} />
-          <MiniMap style={{ background: '#0e0e0e' }} nodeColor={(n) => n.style?.borderColor || '#06b6d4'} />
-        </ReactFlow>
+        {nodes.length > 0 ? (
+          <ReactFlow nodes={nodes} edges={edges} onNodeClick={onNodeClick} fitView proOptions={{ hideAttribution: true }}>
+            <Background color="#222" gap={30} size={1} />
+            <Controls style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} />
+            <MiniMap style={{ background: '#0e0e0e' }} nodeColor={(n) => n.style?.borderColor || '#06b6d4'} />
+          </ReactFlow>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-[12px] text-[#555]">No tree data available for this chain.</p>
+          </div>
+        )}
       </div>
 
       {/* Side panel */}
-      <div className="w-[300px] shrink-0 overflow-y-auto space-y-3">
+      <div className="w-[280px] shrink-0 overflow-y-auto space-y-3">
         {selectedItem ? (
           <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <h3 className="font-display font-bold text-[13px] text-white mb-3 flex items-center gap-2">
               <Eye size={13} className="text-cyan" /> Node Detail
             </h3>
             <div className="space-y-2 text-[12px]">
-              <a href={selectedItem.url} target="_blank" rel="noreferrer" className="text-cyan hover:underline text-[11px] flex items-center gap-1 truncate"><ExternalLink size={10} />{selectedItem.url}</a>
-              <div className="flex justify-between"><span className="text-[#888]">Account</span><span className="text-white font-mono">@{selectedItem.account_handle}</span></div>
-              <div className="flex justify-between"><span className="text-[#888]">Type</span><span className={selectedItem.account_type === 'official' ? 'text-secondary' : 'text-primary'}>{selectedItem.account_type}</span></div>
-              <div className="flex justify-between"><span className="text-[#888]">Confidence</span><span className="text-white font-mono">{selectedItem.match_confidence}%</span></div>
-              <div className="flex justify-between"><span className="text-[#888]">Variant</span><span className="text-white">{VARIANT_EMOJI[selectedItem.variant_type]} {selectedItem.variant_type}</span></div>
-              <div className="flex justify-between"><span className="text-[#888]">Depth</span><span className="font-mono" style={{ color: DEPTH_COLORS[Math.min(selectedItem.depth, 3)] }}>{selectedItem.depth}</span></div>
-              <div className="flex justify-between"><span className="text-[#888]">Time</span><span className="font-mono text-[#888]">{fmtTime(selectedItem.time_from_origin_minutes)}</span></div>
-              <div className="flex justify-between"><span className="text-[#888]">Enforcement</span><span className={selectedItem.enforcement_status === 'takedown' ? 'text-secondary font-bold' : 'text-amber-400'}>{selectedItem.enforcement_status}</span></div>
+              {selectedItem.url && (
+                <a href={selectedItem.url} target="_blank" rel="noreferrer" className="text-cyan hover:underline text-[11px] flex items-center gap-1 truncate">
+                  <ExternalLink size={10} />{selectedItem.url}
+                </a>
+              )}
+              <div className="flex justify-between"><span className="text-[#888]">Platform</span><span className="font-semibold" style={{ color: PLATFORM_COLORS[selectedItem.platform] || '#fff' }}>{selectedItem.platform}</span></div>
+              {selectedItem.account_handle && <div className="flex justify-between"><span className="text-[#888]">Account</span><span className="text-white font-mono">@{selectedItem.account_handle}</span></div>}
+              <div className="flex justify-between"><span className="text-[#888]">Status</span><span className={selectedItem.status === 'resolved' ? 'text-secondary' : 'text-amber-400'}>{selectedItem.status || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-[#888]">Confidence</span><span className="text-white font-mono">{Number(selectedItem.match_confidence > 1 ? selectedItem.match_confidence : (selectedItem.match_confidence || 0) * 100).toFixed(0)}%</span></div>
+              {selectedItem.depth != null && <div className="flex justify-between"><span className="text-[#888]">Depth</span><span className="font-mono" style={{ color: DEPTH_COLORS[Math.min(selectedItem.depth, 3)] }}>{selectedItem.depth}</span></div>}
+              {selectedItem.region && <div className="flex justify-between"><span className="text-[#888]">Region</span><span className="text-white">{selectedItem.region}</span></div>}
+              {selectedItem.enforcement_status && <div className="flex justify-between"><span className="text-[#888]">Enforcement</span><span className={selectedItem.enforcement_status === 'takedown' ? 'text-secondary font-bold' : 'text-amber-400'}>{selectedItem.enforcement_status}</span></div>}
             </div>
           </div>
         ) : (
@@ -210,15 +351,18 @@ function TreeViewTab({ chainId }) {
             <p className="text-[12px] text-[#555]">Click a node to inspect</p>
           </div>
         )}
-        {/* Chain summary */}
-        {chainData?.chain && (
+        {chain && (
           <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="space-y-2 text-[12px]">
-              <div className="flex justify-between"><span className="text-[#888]">Total Nodes</span><span className="text-white font-mono">{chainData.chain.total_nodes}</span></div>
-              <div className="flex justify-between"><span className="text-[#888]">Max Depth</span><span className="text-white font-mono">{chainData.chain.max_depth}</span></div>
-              <div className="flex justify-between"><span className="text-[#888]">Velocity</span><span className="text-cyan font-mono">{chainData.chain.spread_velocity}/hr</span></div>
-              <div className="flex justify-between flex-wrap gap-1"><span className="text-[#888]">Platforms</span>
-                <div className="flex gap-1 flex-wrap">{chainData.chain.platforms_reached?.map(p => <span key={p} className="text-[9px] px-1 rounded" style={{ background: `${PLATFORM_COLORS[p]}20`, color: PLATFORM_COLORS[p] }}>{p}</span>)}</div>
+            <p className="void-label mb-2">Chain Summary</p>
+            <div className="space-y-1.5 text-[12px]">
+              <div className="flex justify-between"><span className="text-[#888]">Asset</span><span className="text-white truncate max-w-[160px]">{chain.asset_name || chain.asset_id}</span></div>
+              <div className="flex justify-between"><span className="text-[#888]">Nodes</span><span className="text-white font-mono">{chain.total_nodes}</span></div>
+              <div className="flex justify-between"><span className="text-[#888]">Max Depth</span><span className="text-white font-mono">{chain.max_depth}</span></div>
+              <div className="flex justify-between"><span className="text-[#888]">Velocity</span><span className="text-cyan font-mono">{chain.spread_velocity}/hr</span></div>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {chain.platforms_reached?.map(p => (
+                  <span key={p} className="text-[9px] px-1 rounded" style={{ background: `${PLATFORM_COLORS[p] || '#555'}20`, color: PLATFORM_COLORS[p] || '#888' }}>{p}</span>
+                ))}
               </div>
             </div>
           </div>
@@ -231,17 +375,25 @@ function TreeViewTab({ chainId }) {
 // ═══════════════════════════════════════════════
 // TAB 3 — TIMELINE VIEW
 // ═══════════════════════════════════════════════
-function TimelineTab({ chainId }) {
-  const { data: timeline } = useQuery({
-    queryKey: ['chain-timeline', chainId],
-    queryFn: () => fetchChainTimeline(chainId),
-    enabled: !!chainId,
-    refetchInterval: 15000,
-    placeholderData: { data: [] },
-    select: (r) => (r?.data && Array.isArray(r.data) ? r.data : []),
-  });
+function TimelineTab({ chainViolations }) {
+  // Sort by time_from_origin_minutes if present, else by detected_at
+  const items = useMemo(() => {
+    if (!chainViolations?.length) return [];
+    const sorted = [...chainViolations].sort((a, b) => {
+      if (a.time_from_origin_minutes != null && b.time_from_origin_minutes != null)
+        return a.time_from_origin_minutes - b.time_from_origin_minutes;
+      return new Date(a.detected_at) - new Date(b.detected_at);
+    });
+    // Assign synthetic time_from_origin_minutes if missing
+    const originTime = new Date(sorted[0]?.detected_at).getTime();
+    return sorted.map(v => ({
+      ...v,
+      time_from_origin_minutes: v.time_from_origin_minutes != null
+        ? v.time_from_origin_minutes
+        : Math.round((new Date(v.detected_at).getTime() - originTime) / 60000),
+    }));
+  }, [chainViolations]);
 
-  const items = timeline || [];
   const platforms = useMemo(() => [...new Set(items.map(i => i.platform))], [items]);
   const maxMinutes = useMemo(() => Math.max(1, ...items.map(i => i.time_from_origin_minutes)), [items]);
   const [visibleCount, setVisibleCount] = useState(0);
@@ -258,6 +410,15 @@ function TimelineTab({ chainId }) {
   }, [items.length]);
 
   const [hovered, setHovered] = useState(null);
+
+  if (!items.length) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center">
+        <AlertCircle size={28} className="text-[#333] mb-3" />
+        <p className="text-[13px] text-[#555]">Select a chain from the Chain List tab to view its timeline.</p>
+      </div>
+    );
+  }
 
   const origin = items[0];
   const lastItem = items[items.length - 1];
@@ -376,19 +537,23 @@ export default function Traceability() {
   const [tab, setTab] = useState('list');
   const [activeChainId, setActiveChainId] = useState(null);
 
-  const { data: chains } = useQuery({
-    queryKey: ['chains'],
-    queryFn: fetchChains,
-    refetchInterval: 15000,
-    placeholderData: { data: [] },
-    select: (r) => (r?.data && Array.isArray(r.data) ? r.data : []),
-  });
+  // ── Real violations data ─────────────────────
+  const { data: violations, isLoading } = useViolationsQuery();
+  const vios = violations || [];
 
-  const chainList = chains || [];
+  // Build chains from real violations
+  const chainList = useMemo(() => buildChainsFromViolations(vios), [vios]);
 
-  const handleSelectChain = useCallback((chainId) => {
+  // Active chain object + its violations
+  const activeChain = useMemo(
+    () => chainList.find(c => c.chain_id === activeChainId) || chainList[0] || null,
+    [chainList, activeChainId]
+  );
+  const activeViolations = activeChain?.violations || [];
+
+  const handleSelectChain = useCallback((chainId, nextTab = 'tree') => {
     setActiveChainId(chainId);
-    setTab('tree');
+    setTab(nextTab);
   }, []);
 
   return (
@@ -399,8 +564,16 @@ export default function Traceability() {
           <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
             <GitBranch size={22} className="text-cyan" /> Traceability
           </h1>
-          <p className="text-[13px] mt-1 text-[#555]">{chainList.length} active propagation chains</p>
+          <p className="text-[13px] mt-1 text-[#555]">
+            {isLoading ? 'Loading…' : `${chainList.length} propagation chain${chainList.length !== 1 ? 's' : ''} · ${vios.length} total violation${vios.length !== 1 ? 's' : ''}`}
+          </p>
         </div>
+        {activeChain && tab !== 'list' && (
+          <div className="text-right">
+            <p className="text-[11px] text-white font-semibold">{activeChain.asset_name || activeChain.asset_id}</p>
+            <p className="text-[10px] text-[#555] font-mono">{activeChain.chain_id}</p>
+          </div>
+        )}
       </div>
 
       {/* Tab bar */}
@@ -408,22 +581,26 @@ export default function Traceability() {
         {TABS.map((t) => {
           const active = tab === t.key;
           return (
-            <button key={t.key} onClick={() => { setTab(t.key); if (t.key === 'list') setActiveChainId(null); }}
+            <button key={t.key}
+              onClick={() => { setTab(t.key); if (t.key === 'list') setActiveChainId(null); }}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-[12px] font-medium transition-all ${active ? 'bg-white/[0.06] text-white' : 'text-[#555] hover:text-[#888]'}`}>
               <t.icon size={13} /> {t.label}
             </button>
           );
         })}
-        {activeChainId && tab !== 'list' && (
-          <span className="flex items-center text-[10px] text-cyan font-mono ml-3 px-2">{activeChainId}</span>
-        )}
       </div>
 
       {/* Tab content */}
       <div className="flex-1 min-h-0 flex flex-col">
-        {tab === 'list' && <ChainListTab chains={chainList} onSelectChain={handleSelectChain} />}
-        {tab === 'tree' && <TreeViewTab chainId={activeChainId || chainList[0]?.chain_id} />}
-        {tab === 'timeline' && <TimelineTab chainId={activeChainId || chainList[0]?.chain_id} />}
+        {tab === 'list' && (
+          <ChainListTab chains={chainList} onSelectChain={handleSelectChain} />
+        )}
+        {tab === 'tree' && (
+          <TreeViewTab chainViolations={activeViolations} chain={activeChain} />
+        )}
+        {tab === 'timeline' && (
+          <TimelineTab chainViolations={activeViolations} />
+        )}
       </div>
     </motion.div>
   );

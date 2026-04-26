@@ -8,12 +8,43 @@ import useViolationsQuery from '../hooks/useViolations';
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 const REGION_COORDS = {
-  'North America': [-95.71, 37.09],
-  'Europe':        [10.45, 51.17],
-  'Asia Pacific':  [114.17, 22.32],
-  'South America': [-51.93, -14.23],
-  'Global':        [0, 20],
-  'Africa':        [21.76, 1.65],
+  'North America':  [-95.71, 37.09],
+  'NA':             [-95.71, 37.09],
+  'US':             [-95.71, 37.09],
+  'United States':  [-95.71, 37.09],
+  'Europe':         [10.45, 51.17],
+  'EU':             [10.45, 51.17],
+  'UK':             [-1.17, 52.37],
+  'DE':             [10.45, 51.16],
+  'FR':             [2.21, 46.23],
+  'Asia Pacific':   [114.17, 22.32],
+  'APAC':           [114.17, 22.32],
+  'Asia':           [100.0, 34.0],
+  'IN':             [78.96, 20.59],
+  'JP':             [138.25, 36.20],
+  'KR':             [127.77, 35.91],
+  'PH':             [121.77, 12.88],
+  'ID':             [113.92, -0.79],
+  'South America':  [-51.93, -14.23],
+  'SA':             [-51.93, -14.23],
+  'Latin America':  [-65.0, -15.0],
+  'BR':             [-51.93, -14.23],
+  'MX':             [-102.55, 23.63],
+  'Africa':         [21.76, 1.65],
+  'AF':             [21.76, 1.65],
+  'NG':             [8.68, 9.08],
+  'ZA':             [25.08, -29.0],
+  'EG':             [30.80, 26.82],
+  'Middle East':    [45.0, 25.0],
+  'ME':             [45.0, 25.0],
+  'TR':             [35.24, 38.96],
+  'SA_ME':          [45.68, 23.89],
+  'AU':             [133.77, -25.27],
+  'CA':             [-96.80, 56.13],
+  'IT':             [12.57, 41.87],
+  'ES':             [-3.74, 40.46],
+  'Global':         [0, 20],
+  'Unknown':        [0, 20],
 };
 
 export default function Monitor() {
@@ -29,10 +60,11 @@ export default function Monitor() {
       byRegion[region].count++;
       byRegion[region].violations.push(v);
     });
-    return Object.values(byRegion).map((r) => ({
-      ...r,
-      coordinates: REGION_COORDS[r.name] || REGION_COORDS['Global'],
-    }));
+    return Object.values(byRegion).map((r) => {
+      const coords = REGION_COORDS[r.name];
+      if (!coords) console.warn(`[Monitor] Unmatched region name: "${r.name}" — falling back to Global`);
+      return { ...r, coordinates: coords || REGION_COORDS['Global'] };
+    });
   }, [vios]);
 
   const criticalCount = vios.filter((v) => v.risk_score > 80).length;

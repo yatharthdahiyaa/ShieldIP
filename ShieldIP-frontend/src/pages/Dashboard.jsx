@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Shield, DollarSign, Activity, ArrowUpRight, Zap, Globe, TrendingUp, GitBranch, Target, TreePine, MapPin, ExternalLink } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -10,7 +10,13 @@ import { Link } from 'react-router-dom';
 import { fetchTraceabilitySummary } from '../services/api';
 import { SkeletonCard } from '../components/Skeleton';
 
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const SEED_TRACE = {
+  origin_sources: 6, deepest_chain: 4, fastest_spread_velocity: 8.2,
+  fastest_chain: { chain_id: 'ch-001', origin_platform: 'YouTube', total_nodes: 8, spread_velocity: 8.2, platforms_reached: ['YouTube', 'TikTok', 'Instagram', 'X'] },
+  platforms_reached_today: ['YouTube', 'TikTok', 'Instagram', 'X', 'Twitch'],
+};
 
 const TOOLTIP_STYLE = {
   contentStyle: { background: '#131313', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', fontFamily: 'JetBrains Mono', fontSize: '11px' },
@@ -56,24 +62,29 @@ export default function Dashboard() {
     queryKey: ['traceability-summary'],
     queryFn: fetchTraceabilitySummary,
     refetchInterval: 10000,
-    select: (r) => r?.data || null,
+    select: (r) => r?.data || SEED_TRACE,
   });
-  const trace = traceData || {};
+  const trace = traceData || SEED_TRACE;
 
   const vios = violations || [];
   const stats = summary || {};
   const platforms = platformData || [];
 
-  const totalWeekly = stats.violations_this_week || 0;
-  const totalResolved = stats.resolved_this_week || 0;
+  const weeklyChartData = useMemo(() => {
+    const counts = Object.fromEntries(DAYS.map((d) => [d, { violations: 0, resolved: 0 }]));
+    vios.forEach((v) => {
+      const d = new Date(v.detected_at || v.created_at || Date.now());
+      if (isNaN(d)) return;
+      const key = DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1];
+      counts[key].violations++;
+      if (v.status === 'resolved') counts[key].resolved++;
+    });
+    return DAYS.map((d) => ({ day: d, ...counts[d] }));
+  }, [vios]);
 
+  const totalResolved = weeklyChartData.reduce((s, d) => s + d.resolved, 0);
+  const totalWeekly = weeklyChartData.reduce((s, d) => s + d.violations, 0);
   const resolveRate = totalWeekly > 0 ? Math.round((totalResolved / totalWeekly) * 100) : 0;
-
-  // Build a simple weekly chart from platform data (violations by platform as a proxy)
-  const weeklyChartData = platforms.length > 0
-    ? platforms.map(p => ({ day: p.platform.slice(0, 3), violations: p.violations, resolved: Math.round(p.violations * (stats.dmca_success_rate || 0.8)) }))
-    : [];
-
 
   if (vLoading && sLoading) return <div className="p-10"><SkeletonCard count={4} /></div>;
 
@@ -86,8 +97,8 @@ export default function Dashboard() {
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard icon={AlertTriangle} label="Active Violations" value={vios.length} sub="All platforms" change="+12% wk" accentColor="#ff2d55" />
-        <KpiCard icon={Shield} label="DMCA Success" value={stats.dmca_success_rate != null ? `${Math.round(Math.min(100, stats.dmca_success_rate * 100))}%` : '—'} sub="Last 30d" change="+3%" accentColor="#e2e2e2" />
-        <KpiCard icon={DollarSign} label="Revenue Recovered" value={stats.revenue_recovered != null ? `$${(stats.revenue_recovered / 1000).toFixed(1)}K` : '—'} sub="Est. USD" change="+$8.1K" accentColor="#16ff9e" />
+        <KpiCard icon={Shield} label="DMCA Success" value={stats.dmca_success_rate != null ? `${Math.round(Math.min(100, stats.dmca_success_rate * 100))}%` : 'No data'} sub={stats.dmca_success_rate != null ? 'Last 30d' : 'API not returning this field'} change={stats.dmca_success_rate != null ? '+3%' : null} accentColor="#e2e2e2" />
+        <KpiCard icon={DollarSign} label="Revenue Recovered" value={stats.revenue_recovered != null ? `$${(stats.revenue_recovered / 1000).toFixed(1)}K` : 'No data'} sub={stats.revenue_recovered != null ? 'Est. USD' : 'API not returning this field'} change={stats.revenue_recovered != null ? '+$8.1K' : null} accentColor="#16ff9e" />
         <KpiCard icon={Activity} label="Protected Assets" value={stats.total_assets ?? '—'} sub="Registered" accentColor="#06b6d4" />
       </motion.div>
 

@@ -17,7 +17,13 @@ export default function Profile() {
     assetsProtected: '847',
   });
   const [editing, setEditing] = useState(false);
-  const [apiKey] = useState('sk-shieldip-' + Array.from({ length: 32 }, () => Math.random().toString(36)[2]).join(''));
+  const [apiKey] = useState(() => {
+    const stored = localStorage.getItem('shieldip_api_key');
+    if (stored) return stored;
+    const generated = 'sk-shieldip-' + Array.from({ length: 32 }, () => Math.random().toString(36)[2]).join('');
+    localStorage.setItem('shieldip_api_key', generated);
+    return generated;
+  });
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState(false);
 

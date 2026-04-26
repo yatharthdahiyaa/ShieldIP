@@ -287,7 +287,7 @@ def _fetch_youtube_candidates(asset_id: str, asset_owner: str, fp_data: dict) ->
         return []
 
 
-def _check_brand_misuse(fp_data: dict, candidate: dict) -> dict:
+def _gemini_brand_check(fp_data: dict, candidate: dict) -> dict:
     """
     Brand misuse / misrepresentation check via Gemini.
     Triggered when the original fingerprint contains detected logos.
@@ -924,7 +924,7 @@ def _run_monitoring_tick():
                     logger.debug(f"L2 boosted confidence to {match_confidence} for {candidate['url'][:60]}")
 
             # Brand misuse check — adds confidence boost if logos detected in fingerprint
-            brand_result = _check_brand_misuse(fp_data, candidate)
+            brand_result = _gemini_brand_check(fp_data, candidate)
             if brand_result["confidence_boost"] > 0:
                 match_confidence = min(match_confidence + brand_result["confidence_boost"], 100.0)
                 candidate["is_brand_misuse"] = brand_result["is_brand_misuse"]

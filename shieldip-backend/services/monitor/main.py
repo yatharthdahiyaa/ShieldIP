@@ -53,6 +53,7 @@ ASSETS_BUCKET = os.environ.get("GCS_ASSETS_BUCKET", "")
 BQ_DATASET = os.environ.get("BIGQUERY_DATASET", "shieldip_analytics")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
 # ─────────────────────────────────────────────
 # GCP Clients
@@ -218,6 +219,115 @@ def _find_web_violations(asset_id: str, gcs_uri: str, asset_owner: str, fp_data:
         f"across {len(scan_uris)} URI(s)"
     )
     return all_candidates
+
+
+def _fetch_youtube_candidates(asset_id: str, asset_owner: str, fp_data: dict) -> list:
+    """
+    Real candidate fetching via YouTube Data API v3.
+    Searches YouTube for videos matching the asset's labels and web entities.
+    Returns candidates in the same format as _find_web_violations.
+    Falls back gracefully if YOUTUBE_API_KEY is not set.
+    """
+    if not YOUTUBE_API_KEY:
+        return []
+    try:
+        from googleapiclient.discovery import build
+
+        labels = [l.get("description", "") for l in fp_data.get("vision_labels", [])[:4]]
+        entities = [e.get("description", "") for e in fp_data.get("web_entities", [])[:3]]
+        query_terms = list({t for t in labels + entities if len(t) > 3})[:5]
+        if not query_terms:
+            return []
+
+        query = " ".join(query_terms)
+        yt = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+        search_resp = yt.search().list(
+            q=query,
+            part="id,snippet",
+            type="video",
+            maxResults=10,
+            order="relevance",
+        ).execute()
+
+        candidates = []
+        for item in search_resp.get("items", []):
+            vid_id = item.get("id", {}).get("videoId")
+            if not vid_id:
+                continue
+            url = f"https://www.youtube.com/watch?v={vid_id}"
+            snippet = item.get("snippet", {})
+            handle = snippet.get("channelTitle", "unknown")
+            account_type = _classify_account(handle, asset_owner)
+            candidates.append({
+                "asset_id": asset_id,
+                "platform": "YouTube",
+                "url": url,
+                "region": "Global",
+                "base_confidence": 55.0,
+                "account_handle": handle,
+                "account_type": account_type,
+                "variant_type": "youtube_search",
+                "source": "youtube_data_api",
+            })
+
+        logger.info(f"YouTube Data API found {len(candidates)} candidates for asset {asset_id}")
+        return candidates
+    except Exception as exc:
+        logger.warning(f"YouTube candidate fetch failed: {exc}")
+        return []
+
+
+def _check_brand_misuse(fp_data: dict, candidate: dict) -> dict:
+    """
+    Brand misuse / misrepresentation check via Gemini.
+    Triggered when the original fingerprint contains detected logos.
+    Returns a dict: { is_brand_misuse: bool, misuse_type: str, confidence_boost: float }
+    """
+    logos = fp_data.get("logos", [])
+    if not logos or not GEMINI_API_KEY:
+        return {"is_brand_misuse": False, "misuse_type": None, "confidence_boost": 0.0}
+
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel(GEMINI_MODEL)
+
+        logo_names = [l.get("description", "") for l in logos[:5]]
+        labels = [l.get("description", "") for l in fp_data.get("vision_labels", [])[:5]]
+        url = candidate.get("url", "")[:300]
+        platform = candidate.get("platform", "")
+
+        prompt = (
+            f"A protected asset contains these brand logos: {logo_names}. "
+            f"The asset is about: {labels}. "
+            f"A candidate URL was found: platform={platform}, url={url}. "
+            "Analyze if this URL likely represents brand misuse or misrepresentation. "
+            "Consider: counterfeit products, logo in unrelated context, impersonation, fake accounts, parody misuse. "
+            "Reply in this exact format:\n"
+            "MISUSE: yes/no\n"
+            "TYPE: counterfeit/impersonation/unrelated_context/fake_account/none\n"
+            "SEVERITY: 0-10"
+        )
+        resp = model.generate_content(prompt)
+        lines = {ln.split(":")[0].strip(): ln.split(":", 1)[1].strip()
+                 for ln in resp.text.strip().splitlines() if ":" in ln}
+
+        is_misuse = lines.get("MISUSE", "no").lower() == "yes"
+        misuse_type = lines.get("TYPE", "none").lower()
+        severity = min(max(int(lines.get("SEVERITY", "0")), 0), 10)
+        confidence_boost = severity * 1.5 if is_misuse else 0.0
+
+        if is_misuse:
+            logger.info(f"Brand misuse detected: type={misuse_type} severity={severity} url={url[:80]}")
+
+        return {
+            "is_brand_misuse": is_misuse,
+            "misuse_type": misuse_type if is_misuse else None,
+            "confidence_boost": confidence_boost,
+        }
+    except Exception as exc:
+        logger.debug(f"Brand misuse check skipped: {exc}")
+        return {"is_brand_misuse": False, "misuse_type": None, "confidence_boost": 0.0}
 
 
 def _l1_url_keyword_filter(fp_data: dict, url: str) -> bool:
@@ -776,6 +886,13 @@ def _run_monitoring_tick():
         # L3: Vision WEB_DETECTION — pass fp_data so video assets use keyframe_uris
         candidates = _find_web_violations(asset_id, gcs_uri, asset_owner, fp_data=fp_data)
 
+        # Real candidate fetching: YouTube Data API (merges with Vision candidates)
+        yt_candidates = _fetch_youtube_candidates(asset_id, asset_owner, fp_data)
+        seen_vision_urls = {c["url"] for c in candidates}
+        for yc in yt_candidates:
+            if yc["url"] not in seen_vision_urls:
+                candidates.append(yc)
+
         for candidate in candidates:
             # L1: keyword pre-filter — skip low-signal URLs with no label overlap
             if not _l1_url_keyword_filter(fp_data, candidate["url"]):
@@ -783,7 +900,7 @@ def _run_monitoring_tick():
                 continue
 
             # Classify variant_type using fingerprint signals
-            if candidate["variant_type"] is None:
+            if candidate.get("variant_type") is None:
                 candidate["variant_type"] = _classify_variant_from_fingerprint(fp_data, candidate["url"])
 
             match_confidence = _compute_match_confidence(candidate["base_confidence"], fp_data)
@@ -794,6 +911,13 @@ def _run_monitoring_tick():
                 if l2_boost:
                     match_confidence = min(match_confidence + l2_boost, 100.0)
                     logger.debug(f"L2 boosted confidence to {match_confidence} for {candidate['url'][:60]}")
+
+            # Brand misuse check — adds confidence boost if logos detected in fingerprint
+            brand_result = _check_brand_misuse(fp_data, candidate)
+            if brand_result["confidence_boost"] > 0:
+                match_confidence = min(match_confidence + brand_result["confidence_boost"], 100.0)
+                candidate["is_brand_misuse"] = brand_result["is_brand_misuse"]
+                candidate["misuse_type"] = brand_result["misuse_type"]
 
             if match_confidence > 45.0:
                 # ── Deduplication: skip if this URL was already recorded ──

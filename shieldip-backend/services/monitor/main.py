@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from faker import Faker
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from google.cloud import bigquery, firestore, pubsub_v1, storage, vision
 
 # ─────────────────────────────────────────────

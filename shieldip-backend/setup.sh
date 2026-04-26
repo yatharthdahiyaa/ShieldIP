@@ -7,8 +7,8 @@
 set -euo pipefail
 
 # ──────────── Configuration ────────────
-PROJECT_ID="sharp-avatar-494218-r8"
-GEMINI_API_KEY="AIzaSyBYG5kjCJ_RgfHCjJ_574xF6in7u5jToSs"
+PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null)}"
+GEMINI_API_KEY="${GEMINI_API_KEY:?ERROR: Set GEMINI_API_KEY before running this script}"
 REGION="${REGION:-us-central1}"
 REPO_NAME="shieldip"
 

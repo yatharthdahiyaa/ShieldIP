@@ -604,7 +604,8 @@ def trace_and_link(violation_id: str, candidate: dict, match_confidence: float, 
         "children_count": 0,
         "status": "detected",
         "enforcement_status": "pending",
-        "brand_misuse": _check_brand_misuse(asset_id, candidate["url"]),
+        "brand_misuse": candidate.get("is_brand_misuse", False),
+        "misuse_type": candidate.get("misuse_type", None),
     }
 
     # STEP 3a — Write violation to Firestore

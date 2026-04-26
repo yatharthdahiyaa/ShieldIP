@@ -298,11 +298,31 @@ def _process_violation(violation_id: str):
     # Write updated record to BigQuery (insert new row with is_latest=true pattern)
     _write_scored_violation_to_bq(violation, update_data)
 
+    # Write audit event
+    _write_audit_event_remote(violation_id, threat_level, total_risk)
+
     # Write threat alert for critical/high violations
     _write_threat_alert(violation, threat_level, total_risk)
 
     # Spread velocity alert: if > 5 violations for this asset in last 30 min
     _check_velocity_alert(violation)
+
+
+def _write_audit_event_remote(violation_id: str, threat_level: str, risk_score: int):
+    """Write a risk_scored audit event directly to Firestore /audit_events."""
+    try:
+        import uuid as _uuid
+        event_id = str(_uuid.uuid4())
+        firestore_client.collection("audit_events").document(event_id).set({
+            "event_id":    event_id,
+            "action":      "risk_scored",
+            "entity_type": "violation",
+            "entity_id":   violation_id,
+            "details":     {"threat_level": threat_level, "risk_score": risk_score},
+            "created_at":  _now_iso(),
+        })
+    except Exception as exc:
+        logger.warning(f"Failed to write audit event: {exc}")
 
 
 def _deliver_alert(alert_type: str, title: str, message: str, metadata: dict):

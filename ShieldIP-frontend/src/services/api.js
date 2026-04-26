@@ -44,4 +44,10 @@ export const fetchAlerts = (params) => api.get('/alerts', { params }).then((r) =
 export const markAlertRead = (id) => api.patch(`/alerts/${id}/read`).then((r) => r.data);
 export const markAllAlertsRead = () => api.patch('/alerts/read-all').then((r) => r.data);
 
+export const fetchApiKeys = () => api.get('/api-keys').then((r) => r.data);
+export const createApiKey = (body) => api.post('/api-keys', body).then((r) => r.data);
+export const revokeApiKey = (id) => api.delete(`/api-keys/${id}`).then((r) => r.data);
+
+export const fetchAuditEvents = (params) => api.get('/audit-events', { params }).then((r) => r.data);
+
 export default api;

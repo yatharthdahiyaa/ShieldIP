@@ -688,10 +688,27 @@ def _run_monitoring_tick():
                     "variant_type": candidate["variant_type"],
                 })
 
+                _write_audit_event_fs(violation_id, candidate["asset_id"], candidate["platform"])
                 violations_created += 1
 
     logger.info(f"Monitoring tick complete: {violations_created} violations created")
     return {"violations_created": violations_created}
+
+
+def _write_audit_event_fs(violation_id: str, asset_id: str, platform: str):
+    """Write violation_detected audit event to Firestore /audit_events."""
+    try:
+        event_id = str(uuid.uuid4())
+        firestore_client.collection("audit_events").document(event_id).set({
+            "event_id":    event_id,
+            "action":      "violation_detected",
+            "entity_type": "violation",
+            "entity_id":   violation_id,
+            "details":     {"asset_id": asset_id, "platform": platform},
+            "created_at":  _now_iso(),
+        })
+    except Exception as exc:
+        logger.warning(f"Failed to write audit event: {exc}")
 
 
 @app.get("/health")

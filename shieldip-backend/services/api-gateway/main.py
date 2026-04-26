@@ -148,6 +148,8 @@ async def register_asset(
     publisher.publish(topic_path, data=message_data)
     logger.info(f"Published asset-registered for {asset_id}")
 
+    _write_audit_event("asset_registered", "asset", asset_id, {"filename": filename, "media_type": media_type})
+
     return _response(data={
         "asset_id": asset_id,
         "filename": filename,
@@ -268,6 +270,8 @@ def enforce_violation(violation_id: str, body: EnforceRequest):
     firestore_client.collection("violations").document(violation_id).update({
         "enforcement_status": "queued",
     })
+
+    _write_audit_event("enforcement_queued", "violation", violation_id, {"action": body.action})
 
     return _response(data={
         "violation_id": violation_id,
@@ -658,3 +662,131 @@ def mark_all_alerts_read():
     except Exception as exc:
         logger.error(f"mark_all_alerts_read failed: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ─────────────────────────────────────────────
+# API KEYS
+# ─────────────────────────────────────────────
+
+import hashlib
+import secrets
+
+
+def _hash_key(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+@app.get("/api-keys")
+def list_api_keys():
+    """Return all API keys for the account (key value is masked)."""
+    try:
+        docs = firestore_client.collection("api_keys").order_by(
+            "created_at", direction=firestore.Query.DESCENDING
+        ).stream()
+        keys = []
+        for doc in docs:
+            d = doc.to_dict()
+            keys.append({
+                "key_id":     d.get("key_id"),
+                "name":       d.get("name"),
+                "prefix":     d.get("prefix"),
+                "scopes":     d.get("scopes", []),
+                "status":     d.get("status", "active"),
+                "created_at": d.get("created_at"),
+                "last_used":  d.get("last_used"),
+            })
+        return _response(data={"keys": keys, "total": len(keys)})
+    except Exception as exc:
+        logger.error(f"list_api_keys failed: {exc}", exc_info=True)
+        return _response(data={"keys": [], "total": 0})
+
+
+@app.post("/api-keys")
+def create_api_key(body: dict):
+    """Create a new API key. Returns the raw key once — never shown again."""
+    try:
+        name   = body.get("name", "").strip()
+        scopes = body.get("scopes", ["read"])
+        if not name:
+            raise HTTPException(status_code=400, detail="name is required")
+
+        raw_key = "sip_" + secrets.token_urlsafe(32)
+        key_id  = str(uuid.uuid4())
+        prefix  = raw_key[:12]
+
+        doc = {
+            "key_id":     key_id,
+            "name":       name,
+            "prefix":     prefix,
+            "key_hash":   _hash_key(raw_key),
+            "scopes":     scopes,
+            "status":     "active",
+            "created_at": _now_iso(),
+            "last_used":  None,
+        }
+        firestore_client.collection("api_keys").document(key_id).set(doc)
+        logger.info(f"Created API key {key_id} ({name})")
+
+        return _response(data={"key_id": key_id, "name": name, "key": raw_key, "prefix": prefix, "scopes": scopes})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"create_api_key failed: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.delete("/api-keys/{key_id}")
+def revoke_api_key(key_id: str):
+    """Revoke (soft-delete) an API key."""
+    try:
+        ref = firestore_client.collection("api_keys").document(key_id)
+        if not ref.get().exists:
+            raise HTTPException(status_code=404, detail="Key not found")
+        ref.update({"status": "revoked", "revoked_at": _now_iso()})
+        logger.info(f"Revoked API key {key_id}")
+        return _response(data={"key_id": key_id, "status": "revoked"})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"revoke_api_key failed: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ─────────────────────────────────────────────
+# AUDIT EVENTS
+# ─────────────────────────────────────────────
+
+def _write_audit_event(action: str, entity_type: str, entity_id: str, details: dict = None):
+    """Write a structured audit event to Firestore /audit_events collection."""
+    try:
+        event_id = str(uuid.uuid4())
+        firestore_client.collection("audit_events").document(event_id).set({
+            "event_id":    event_id,
+            "action":      action,
+            "entity_type": entity_type,
+            "entity_id":   entity_id,
+            "details":     details or {},
+            "created_at":  _now_iso(),
+        })
+    except Exception as exc:
+        logger.warning(f"Failed to write audit event: {exc}")
+
+
+@app.get("/audit-events")
+def get_audit_events(
+    limit: int = Query(default=100, le=500),
+    action: str = Query(default=None),
+):
+    """Return recent audit events, newest first."""
+    try:
+        query = firestore_client.collection("audit_events").order_by(
+            "created_at", direction=firestore.Query.DESCENDING
+        )
+        if action:
+            query = query.where("action", "==", action)
+        docs  = list(query.limit(limit).stream())
+        events = [doc.to_dict() for doc in docs]
+        return _response(data={"events": events, "total": len(events)})
+    except Exception as exc:
+        logger.error(f"get_audit_events failed: {exc}", exc_info=True)
+        return _response(data={"events": [], "total": 0})

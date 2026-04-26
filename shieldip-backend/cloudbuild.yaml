@@ -101,7 +101,7 @@ steps:
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-1.5-flash'
+      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-2.5-flash'
       - '--service-account=shieldip-api-gateway@${PROJECT_ID}.iam.gserviceaccount.com'
     id: 'deploy-api-gateway'
     waitFor: ['push-api-gateway']
@@ -116,7 +116,7 @@ steps:
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--no-allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-1.5-flash'
+      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-2.5-flash'
       - '--service-account=shieldip-fingerprint@${PROJECT_ID}.iam.gserviceaccount.com'
     id: 'deploy-fingerprint'
     waitFor: ['push-fingerprint']
@@ -131,7 +131,7 @@ steps:
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--no-allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-1.5-flash'
+      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-2.5-flash'
       - '--service-account=shieldip-monitor@${PROJECT_ID}.iam.gserviceaccount.com'
     id: 'deploy-monitor'
     waitFor: ['push-monitor']
@@ -146,7 +146,7 @@ steps:
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--no-allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-1.5-flash'
+      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-2.5-flash'
       - '--service-account=shieldip-risk-scoring@${PROJECT_ID}.iam.gserviceaccount.com'
     id: 'deploy-risk-scoring'
     waitFor: ['push-risk-scoring']
@@ -161,7 +161,7 @@ steps:
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--no-allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-1.5-flash'
+      - '--set-env-vars=GCP_PROJECT_ID=${PROJECT_ID},GCS_ASSETS_BUCKET=shieldip-assets-${PROJECT_ID},GCS_EVIDENCE_BUCKET=shieldip-evidence-${PROJECT_ID},FIRESTORE_DATABASE=(default),BIGQUERY_DATASET=shieldip_analytics,TASKS_QUEUE=enforcement-actions,GEMINI_API_KEY=${_GEMINI_API_KEY},GEMINI_MODEL=gemini-2.5-flash'
       - '--service-account=shieldip-enforcement@${PROJECT_ID}.iam.gserviceaccount.com'
     id: 'deploy-enforcement'
     waitFor: ['push-enforcement']

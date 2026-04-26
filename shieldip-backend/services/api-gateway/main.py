@@ -358,6 +358,7 @@ def analytics_by_platform():
         rows = [
             {
                 "platform": row.platform,
+                "violations": row.violation_count,
                 "violation_count": row.violation_count,
                 "avg_confidence": round(float(row.avg_confidence), 2) if row.avg_confidence else 0.0,
             }

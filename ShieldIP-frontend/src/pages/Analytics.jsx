@@ -222,19 +222,43 @@ export default function Analytics() {
 
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-5">
-          <BarChart2 size={14} className="text-cyan" />
-          <h3 className="font-display font-bold text-[14px] text-white">Violations by Platform</h3>
+          <Activity size={14} className="text-cyan" />
+          <h3 className="font-display font-bold text-[14px] text-white">Risk Score Distribution</h3>
+          <span className="ml-auto text-[10px] text-[#555] font-mono">All violations</span>
         </div>
         <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={platforms} margin={{ top: 4, right: 4, left: -22, bottom: 4 }}>
-            <XAxis dataKey="platform" tick={{ fill: '#444', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: '#444', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip {...TOOLTIP_STYLE} />
-            <defs>
-              <linearGradient id="bV" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ff2d55" /><stop offset="100%" stopColor="#93000a" stopOpacity={0.7} /></linearGradient>
-            </defs>
-            <Bar dataKey="violations" fill="url(#bV)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-          </BarChart>
+          {(() => {
+            const buckets = [
+              { range: '0–20', min: 0, max: 20, count: 0 },
+              { range: '20–40', min: 20, max: 40, count: 0 },
+              { range: '40–60', min: 40, max: 60, count: 0 },
+              { range: '60–80', min: 60, max: 80, count: 0 },
+              { range: '80–100', min: 80, max: 100, count: 0 },
+            ];
+            vios.forEach(v => {
+              const s = Number(v.risk_score) || 0;
+              const b = buckets.find(b => s >= b.min && s < b.max) || buckets[buckets.length - 1];
+              b.count++;
+            });
+            return buckets.some(b => b.count > 0) ? (
+              <BarChart data={buckets} margin={{ top: 4, right: 4, left: -22, bottom: 4 }}>
+                <defs>
+                  <linearGradient id="riskGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#06b6d4" />
+                    <stop offset="100%" stopColor="#0891b2" stopOpacity={0.4} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="range" tick={{ fill: '#444', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#444', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip {...TOOLTIP_STYLE} />
+                <Bar dataKey="count" fill="url(#riskGrad)" radius={[4, 4, 0, 0]} maxBarSize={48} />
+              </BarChart>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-[12px] text-[#444]">No risk data yet</p>
+              </div>
+            );
+          })()}
         </ResponsiveContainer>
       </Card>
     </motion.div>

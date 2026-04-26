@@ -51,6 +51,8 @@ logger.handlers = [handler]
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
 ASSETS_BUCKET = os.environ.get("GCS_ASSETS_BUCKET", "")
 BQ_DATASET = os.environ.get("BIGQUERY_DATASET", "shieldip_analytics")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 # ─────────────────────────────────────────────
 # GCP Clients
@@ -147,86 +149,206 @@ def _pick_variant_type() -> str:
     return random.choices(VARIANT_TYPES, weights=VARIANT_WEIGHTS, k=1)[0]
 
 
-def _find_web_violations(asset_id: str, gcs_uri: str, asset_owner: str) -> list:
-    """REAL: Use Cloud Vision API to find matching images on the web."""
-    try:
-        image = vision.Image(source=vision.ImageSource(image_uri=gcs_uri))
-        features = [vision.Feature(type_=vision.Feature.Type.WEB_DETECTION)]
-        request_obj = vision.AnnotateImageRequest(image=image, features=features)
-        response = vision_client.annotate_image(request=request_obj)
-        
-        candidates = []
-        if response.web_detection and response.web_detection.pages_with_matching_images:
+def _find_web_violations(asset_id: str, gcs_uri: str, asset_owner: str, fp_data: dict = None) -> list:
+    """
+    L3: Use Cloud Vision WEB_DETECTION to find matching images on the web.
+    For video assets with keyframe_uris, scans each keyframe for broader multi-frame coverage.
+    Deduplicates candidate URLs across all scan URIs.
+    """
+    fp_data = fp_data or {}
+    media_type = fp_data.get("media_type", "image")
+    keyframe_uris = fp_data.get("keyframe_uris", [])
+
+    if media_type == "video" and keyframe_uris:
+        scan_uris = keyframe_uris[:4] + [gcs_uri]
+    else:
+        scan_uris = [gcs_uri]
+
+    all_candidates = []
+    seen_urls: set = set()
+
+    for scan_uri in scan_uris:
+        try:
+            image = vision.Image(source=vision.ImageSource(image_uri=scan_uri))
+            features = [vision.Feature(type_=vision.Feature.Type.WEB_DETECTION, max_results=15)]
+            response = vision_client.annotate_image(
+                vision.AnnotateImageRequest(image=image, features=features)
+            )
+            if not (response.web_detection and response.web_detection.pages_with_matching_images):
+                continue
+
+            frame_base = 85.0
+            if response.web_detection.web_images:
+                scores = [img.score * 100 for img in response.web_detection.web_images[:5] if img.score]
+                if scores:
+                    frame_base = round(sum(scores) / len(scores), 2)
+
             for page in response.web_detection.pages_with_matching_images:
                 url = page.url
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+
                 platform_name = "Unknown Website"
                 for p in PLATFORMS:
                     if p["domain"] in url:
                         platform_name = p["name"]
                         break
-                
+
                 handle = _extract_account_handle(url)
                 account_type = _classify_account(handle, asset_owner)
-                
-                candidates.append({
+                all_candidates.append({
                     "asset_id": asset_id,
                     "platform": platform_name,
                     "url": url,
                     "region": random.choice(REGIONS),
-                    "base_confidence": 85.0,  # WEB_DETECTION match score — fused further downstream
+                    "base_confidence": frame_base,
                     "account_handle": handle,
                     "account_type": account_type,
-                    "variant_type": None,  # classified in _run_monitoring_tick using fingerprint
+                    "variant_type": None,
                 })
-        return candidates
+        except Exception as exc:
+            logger.error(f"Vision WEB_DETECTION failed for {scan_uri}: {exc}", exc_info=True)
+
+    logger.info(
+        f"Vision found {len(all_candidates)} unique candidates for {asset_id} "
+        f"across {len(scan_uris)} URI(s)"
+    )
+    return all_candidates
+
+
+def _l1_url_keyword_filter(fp_data: dict, url: str) -> bool:
+    """
+    L1 pre-filter: returns True if this candidate URL should be investigated.
+    Always passes high-reach social platform domains. For others, requires at least
+    one fingerprint label/entity token to appear in the URL path to avoid noise.
+    """
+    HIGH_REACH = {
+        "youtube.com", "tiktok.com", "instagram.com", "facebook.com",
+        "twitter.com", "x.com", "dailymotion.com", "vimeo.com",
+    }
+    url_lower = url.lower()
+    if any(d in url_lower for d in HIGH_REACH):
+        return True
+
+    fp_terms = (
+        {lbl.get("description", "").lower() for lbl in fp_data.get("vision_labels", [])}
+        | {e.get("description", "").lower() for e in fp_data.get("web_entities", [])}
+    )
+    if not fp_terms or len(fp_terms) < 3:
+        return True   # sparse fingerprint — pass everything
+
+    url_tokens = {t for t in re.split(r"[/\-_?&=.+%]", url_lower) if len(t) > 3}
+    return len(fp_terms & url_tokens) > 0
+
+
+def _l2_semantic_check(fp_data: dict, candidate: dict) -> float:
+    """
+    L2 semantic similarity via Gemini — called only for borderline confidence (35–65%).
+    Returns an additive boost 0–15 pts. Returns 0 if Gemini unavailable.
+    """
+    if not GEMINI_API_KEY:
+        return 0.0
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel(GEMINI_MODEL)
+
+        labels = [l.get("description", "") for l in fp_data.get("vision_labels", [])[:5]]
+        entities = [e.get("description", "") for e in fp_data.get("web_entities", [])[:3]]
+        url = candidate.get("url", "")[:200]
+        platform = candidate.get("platform", "")
+
+        prompt = (
+            f"Content fingerprint: labels={labels}, entities={entities}. "
+            f"Candidate: platform={platform}, url={url}. "
+            "On a scale 0-10, how likely does this URL contain the same copyrighted content? "
+            "Reply with only a single integer 0-10."
+        )
+        resp = model.generate_content(prompt)
+        score = int(resp.text.strip().split()[0])
+        boost = min(max(score, 0), 10) * 1.5
+        logger.debug(f"L2 semantic boost={boost} for {url[:60]}")
+        return boost
     except Exception as exc:
-        logger.error(f"Vision API WEB_DETECTION failed: {exc}", exc_info=True)
-        return []
+        logger.debug(f"L2 semantic check skipped: {exc}")
+        return 0.0
 
 
 
 
 def _compute_match_confidence(base_confidence: float, fingerprint: dict) -> float:
     """
-    4-signal confidence fusion:
-      S1 (40pts) – base_confidence from Vision WEB_DETECTION
-      S2 (25pts) – web_entity overlap between fingerprint and candidate
-      S3 (20pts) – dominant colour palette proximity
-      S4 (15pts) – label semantic overlap
+    L4 multimodal 6-signal confidence fusion (max 100 pts):
+      S1 (30pts) – base_confidence from Vision WEB_DETECTION (real per-frame score)
+      S2 (20pts) – web_entity ∩ vision_label overlap (semantic uniqueness proxy)
+      S3 (15pts) – dominant colour palette richness (colour-grade variant detection)
+      S4 (10pts) – IP-category label match (content type specificity)
+      S5 (15pts) – OCR/text_baseline depth (text-heavy = highly identifiable)
+      S6 (10pts) – scene/shot depth (more scenes = more unique video fingerprint)
     Returns 0–100.
     """
     if not fingerprint:
         return base_confidence
 
-    # S1 — vision web detection base (normalise to 0–40)
-    s1 = min(base_confidence / 100 * 40, 40.0)
-
-    # S2 — web entity overlap (fingerprint entities vs candidate domain keywords)
     fp_entities = {e.get("description", "").lower() for e in fingerprint.get("web_entities", [])}
-    fp_labels = {lbl.get("description", "").lower() for lbl in fingerprint.get("vision_labels", [])}
-    overlap = len(fp_entities & fp_labels)  # proxy: entities that also appear in content labels
-    s2 = min(overlap * 5, 25.0)  # 5pts per overlapping signal, max 25
+    fp_labels   = {lbl.get("description", "").lower() for lbl in fingerprint.get("vision_labels", [])}
 
-    # S3 — dominant colour palette proximity (avg colour distance)
+    # S1 — Vision WEB_DETECTION base score (normalised to 0–30)
+    s1 = min(base_confidence / 100 * 30, 30.0)
+
+    # S2 — semantic overlap: web entities that also appear in content labels (max 20)
+    overlap = len(fp_entities & fp_labels)
+    s2 = min(overlap * 4, 20.0)
+
+    # S3 — colour palette richness: rich / saturated colours score higher (max 15)
     palette = fingerprint.get("dominant_palette", [])
     if palette:
-        # Use top-3 colours; compute average of R+G+B normalised distance to white (255,255,255)
-        # as a proxy for whether colours are preserved (low distance = colour-grade variant)
         top = palette[:3]
-        avg_brightness = sum((c["r"] + c["g"] + c["b"]) / 765 for c in top) / len(top)
-        # Score higher if colours are rich (not washed out)
-        s3 = round(avg_brightness * 20, 2)
+        avg_brightness = sum((c.get("r", 0) + c.get("g", 0) + c.get("b", 0)) / 765 for c in top) / len(top)
+        s3 = round(avg_brightness * 15, 2)
     else:
-        s3 = 10.0  # neutral
+        s3 = 7.5  # neutral midpoint for video (no palette from Video Intelligence)
 
-    # S4 — label overlap (fingerprint labels in common with known IP categories)
-    ip_keywords = {"music", "film", "movie", "sport", "game", "show", "video", "media",
-                   "entertainment", "news", "clip", "highlight", "trailer", "series"}
-    matched_labels = fp_labels & ip_keywords
-    s4 = min(len(matched_labels) * 3, 15.0)
+    # S4 — IP-category label specificity (max 10)
+    ip_keywords = {
+        "music", "film", "movie", "sport", "game", "show", "video", "media",
+        "entertainment", "news", "clip", "highlight", "trailer", "series",
+        "album", "concert", "broadcast", "streaming",
+    }
+    matched_ip = fp_labels & ip_keywords
+    s4 = min(len(matched_ip) * 2, 10.0)
 
-    total = round(s1 + s2 + s3 + s4, 2)
-    logger.debug(f"Confidence fusion: s1={s1} s2={s2} s3={s3} s4={s4} total={total}")
+    # S5 — OCR / text_baseline depth: text-rich content is highly unique (max 15)
+    text_tokens: set = set()
+    for t in fingerprint.get("text_baseline", []):
+        text_tokens.update(w.lower() for w in str(t).split() if len(w) > 3)
+    if len(text_tokens) > 10:
+        s5 = 15.0
+    elif len(text_tokens) > 5:
+        s5 = 10.0
+    elif len(text_tokens) > 2:
+        s5 = 5.0
+    else:
+        s5 = 0.0
+
+    # S6 — video scene / shot depth: more distinct scenes = harder to spoof (max 10)
+    scene_count = len(fingerprint.get("scenes", [])) or len(fingerprint.get("shots", []))
+    if scene_count > 20:
+        s6 = 10.0
+    elif scene_count > 10:
+        s6 = 7.0
+    elif scene_count > 3:
+        s6 = 4.0
+    elif scene_count > 0:
+        s6 = 2.0
+    else:
+        s6 = 0.0
+
+    total = round(s1 + s2 + s3 + s4 + s5 + s6, 2)
+    logger.debug(
+        f"L4 fusion: s1={s1} s2={s2} s3={s3} s4={s4} s5={s5} s6={s6} → total={total}"
+    )
     return min(total, 100.0)
 
 
@@ -648,15 +770,27 @@ def _run_monitoring_tick():
             logger.warning(f"Asset {asset_id} missing gcs_uri, skipping web detection.")
             continue
 
-        # Use REAL Cloud Vision WEB_DETECTION
-        candidates = _find_web_violations(asset_id, gcs_uri, asset_owner)
+        # L3: Vision WEB_DETECTION — pass fp_data so video assets use keyframe_uris
+        candidates = _find_web_violations(asset_id, gcs_uri, asset_owner, fp_data=fp_data)
 
         for candidate in candidates:
-            # Classify variant_type using fingerprint signals now that we have fp_data
+            # L1: keyword pre-filter — skip low-signal URLs with no label overlap
+            if not _l1_url_keyword_filter(fp_data, candidate["url"]):
+                logger.debug(f"L1 filtered out: {candidate['url'][:80]}")
+                continue
+
+            # Classify variant_type using fingerprint signals
             if candidate["variant_type"] is None:
                 candidate["variant_type"] = _classify_variant_from_fingerprint(fp_data, candidate["url"])
 
             match_confidence = _compute_match_confidence(candidate["base_confidence"], fp_data)
+
+            # L2: semantic similarity boost for borderline confidence (35–65%)
+            if 35.0 < match_confidence < 65.0:
+                l2_boost = _l2_semantic_check(fp_data, candidate)
+                if l2_boost:
+                    match_confidence = min(match_confidence + l2_boost, 100.0)
+                    logger.debug(f"L2 boosted confidence to {match_confidence} for {candidate['url'][:60]}")
 
             if match_confidence > 45.0:
                 # ── Deduplication: skip if this URL was already recorded ──

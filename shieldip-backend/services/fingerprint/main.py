@@ -12,6 +12,8 @@ import hashlib
 import json
 import logging
 import os
+import subprocess
+import tempfile
 from datetime import datetime
 
 from fastapi import FastAPI, Request
@@ -175,6 +177,66 @@ def _process_image(asset_id: str, gcs_uri: str) -> dict:
     }
 
 
+def _extract_keyframes(gcs_uri: str, asset_id: str, timestamps: list) -> list:
+    """
+    Extract JPEG keyframe images at given timestamps from a GCS video using FFmpeg.
+    Uploads frames to GCS under assets/{asset_id}/keyframes/ and returns gs:// URIs.
+    Falls back to empty list on any error (non-fatal).
+    """
+    if not timestamps:
+        return []
+
+    # Parse bucket and object path from gs://bucket/path
+    parts = gcs_uri[5:].split("/", 1)  # strip "gs://"
+    if len(parts) < 2:
+        return []
+    bucket_name, object_path = parts[0], parts[1]
+
+    keyframe_uris = []
+    try:
+        bucket = storage_client.bucket(bucket_name)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            video_path = os.path.join(tmpdir, "input_video")
+
+            # Download video from GCS
+            blob = bucket.blob(object_path)
+            blob.download_to_filename(video_path)
+            logger.info(f"Downloaded video for keyframe extraction: {asset_id}")
+
+            # Extract one JPEG frame at each shot boundary (max 8 keyframes)
+            for i, ts in enumerate(timestamps[:8]):
+                frame_path = os.path.join(tmpdir, f"kf_{i:03d}.jpg")
+                try:
+                    result = subprocess.run(
+                        [
+                            "ffmpeg", "-y",
+                            "-ss", str(round(ts, 3)),
+                            "-i", video_path,
+                            "-vframes", "1",
+                            "-q:v", "3",
+                            "-f", "image2",
+                            frame_path,
+                        ],
+                        capture_output=True,
+                        timeout=60,
+                    )
+                    if result.returncode == 0 and os.path.exists(frame_path) and os.path.getsize(frame_path) > 1024:
+                        dest = f"assets/{asset_id}/keyframes/kf_{i:03d}.jpg"
+                        bucket.blob(dest).upload_from_filename(frame_path, content_type="image/jpeg")
+                        uri = f"gs://{bucket_name}/{dest}"
+                        keyframe_uris.append(uri)
+                        logger.info(f"Keyframe {i} extracted at t={ts}s → {uri}")
+                    else:
+                        logger.warning(f"FFmpeg failed for frame {i} (returncode={result.returncode})")
+                except Exception as exc:
+                    logger.warning(f"Keyframe {i} extraction error at t={ts}: {exc}")
+
+    except Exception as exc:
+        logger.warning(f"Keyframe extraction aborted for {asset_id}: {exc}")
+
+    return keyframe_uris
+
+
 def _process_video(asset_id: str, gcs_uri: str) -> dict:
     """Process a video asset through Video Intelligence API."""
     logger.info(f"Processing video asset {asset_id} from {gcs_uri}")
@@ -232,7 +294,6 @@ def _process_video(asset_id: str, gcs_uri: str) -> dict:
     for i, shot in enumerate(shots[:30]):
         shot_hash_input = f"shot:{i};start:{shot['start']};end:{shot['end']};labels:{len(vision_labels)}"
         shot_hash = hashlib.sha256(shot_hash_input.encode()).hexdigest()[:16]
-        # Collect labels active during this shot window
         shot_labels = [lbl["description"] for lbl in vision_labels[:5]] if vision_labels else []
         scenes.append({
             "timestamp": shot["start"],
@@ -244,13 +305,22 @@ def _process_video(asset_id: str, gcs_uri: str) -> dict:
     hash_input = f"shots:{len(shots)};labels:{len(vision_labels)};objects:{len(objects_tracked)}"
     phash = hashlib.sha256(hash_input.encode()).hexdigest()[:16]
 
+    # L3: Extract keyframes at shot boundaries using FFmpeg → store in GCS for Vision reuse
+    shot_timestamps = [s["start"] for s in shots if s["start"] >= 0]
+    keyframe_uris = _extract_keyframes(gcs_uri, asset_id, shot_timestamps)
+    logger.info(f"Extracted {len(keyframe_uris)} keyframes for video asset {asset_id}")
+
     return {
         "phash": phash,
         "shots": shots[:20],
         "scenes": scenes,
         "vision_labels": vision_labels,
+        "web_entities": [],            # not returned by Video Intelligence
+        "logos": [],                   # not returned by Video Intelligence
+        "dominant_palette": [],        # not returned by Video Intelligence
         "objects_tracked": objects_tracked,
-        "text_on_screen": text_on_screen,
+        "text_baseline": text_on_screen,   # unified field name (fixes naming bug)
+        "keyframe_uris": keyframe_uris,    # GCS URIs of extracted keyframe images (L3)
         "media_type": "video",
     }
 
@@ -305,6 +375,8 @@ async def handle_pubsub(request: Request):
             "dominant_palette": fingerprint_data.get("dominant_palette", []),
             "text_baseline": fingerprint_data.get("text_baseline", []),
             "scenes": fingerprint_data.get("scenes", []),
+            "shots": fingerprint_data.get("shots", []),
+            "keyframe_uris": fingerprint_data.get("keyframe_uris", []),
             "media_type": fingerprint_data["media_type"],
             "created_at": _now_iso(),
         }

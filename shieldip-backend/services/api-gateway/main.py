@@ -6,6 +6,7 @@ import os
 import uuid
 from datetime import datetime
 
+import httpx
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import bigquery, firestore, pubsub_v1, storage, tasks_v2
@@ -52,6 +53,7 @@ EVIDENCE_BUCKET = os.environ.get("GCS_EVIDENCE_BUCKET", "")
 BQ_DATASET = os.environ.get("BIGQUERY_DATASET", "shieldip_analytics")
 TASKS_QUEUE = os.environ.get("TASKS_QUEUE", "enforcement-actions")
 VERTEX_LOCATION = os.environ.get("VERTEX_AI_LOCATION", "us-central1")
+MONITOR_SERVICE_URL = os.environ.get("MONITOR_SERVICE_URL", "")
 
 # ─────────────────────────────────────────────
 # GCP Clients (Application Default Credentials)
@@ -95,6 +97,21 @@ def _response(data=None, error=None) -> dict:
 @app.get("/health")
 def health():
     return _response(data={"status": "healthy", "service": "api-gateway"})
+
+
+# ─────────────────────────────────────────────
+# Monitoring Trigger (proxy to monitor-service)
+# ─────────────────────────────────────────────
+@app.post("/monitoring/trigger")
+def trigger_monitoring():
+    """Proxy to monitor-service /trigger — manually run a monitoring tick."""
+    if not MONITOR_SERVICE_URL:
+        raise HTTPException(status_code=503, detail="MONITOR_SERVICE_URL not configured")
+    try:
+        resp = httpx.post(f"{MONITOR_SERVICE_URL}/trigger", timeout=300)
+        return resp.json()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ─────────────────────────────────────────────

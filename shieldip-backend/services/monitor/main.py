@@ -850,6 +850,17 @@ def health():
     return {"status": "healthy", "service": "monitor-service"}
 
 
+@app.post("/trigger")
+def trigger_tick():
+    """Manually trigger a monitoring tick (for testing / admin use)."""
+    try:
+        result = _run_monitoring_tick()
+        return {"status": "ok", "violations_created": result.get("violations_created", 0)}
+    except Exception as exc:
+        logger.error(f"Manual trigger failed: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.post("/pubsub")
 async def handle_pubsub(request: Request):
     """Handle Pub/Sub push messages (monitoring-tick / fingerprint-ready)."""

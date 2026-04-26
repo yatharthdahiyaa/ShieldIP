@@ -176,11 +176,13 @@ steps:
       - |
         ENFORCEMENT_URL=$(gcloud run services describe enforcement-service \
           --region=${_REGION} --format='value(status.url)')
+        MONITOR_URL=$(gcloud run services describe monitor-service \
+          --region=${_REGION} --format='value(status.url)')
         gcloud run services update api-gateway-service \
           --region=${_REGION} \
-          --update-env-vars=ENFORCEMENT_SERVICE_URL=$$ENFORCEMENT_URL
+          --update-env-vars=ENFORCEMENT_SERVICE_URL=$$ENFORCEMENT_URL,MONITOR_SERVICE_URL=$$MONITOR_URL
     id: 'update-gateway-env'
-    waitFor: ['deploy-api-gateway', 'deploy-enforcement']
+    waitFor: ['deploy-api-gateway', 'deploy-enforcement', 'deploy-monitor']
 
 substitutions:
   _REGION: 'us-central1'

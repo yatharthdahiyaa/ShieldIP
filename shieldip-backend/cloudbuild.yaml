@@ -8,7 +8,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/api-gateway-service:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/api-gateway-service:'
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/api-gateway-service:latest'
       - './services/api-gateway'
@@ -19,7 +19,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/fingerprint-service:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/fingerprint-service:'
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/fingerprint-service:latest'
       - './services/fingerprint'
@@ -30,7 +30,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/monitor-service:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/monitor-service:'
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/monitor-service:latest'
       - './services/monitor'
@@ -41,7 +41,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/risk-scoring-service:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/risk-scoring-service:'
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/risk-scoring-service:latest'
       - './services/risk-scoring'
@@ -52,7 +52,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/enforcement-service:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/enforcement-service:'
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/enforcement-service:latest'
       - './services/enforcement'
@@ -97,7 +97,7 @@ steps:
       - 'run'
       - 'deploy'
       - 'api-gateway-service'
-      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/api-gateway-service:${SHORT_SHA}'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/api-gateway-service:'
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--allow-unauthenticated'
@@ -112,7 +112,7 @@ steps:
       - 'run'
       - 'deploy'
       - 'fingerprint-service'
-      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/fingerprint-service:${SHORT_SHA}'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/fingerprint-service:'
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--no-allow-unauthenticated'
@@ -127,7 +127,7 @@ steps:
       - 'run'
       - 'deploy'
       - 'monitor-service'
-      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/monitor-service:${SHORT_SHA}'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/monitor-service:'
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--no-allow-unauthenticated'
@@ -142,7 +142,7 @@ steps:
       - 'run'
       - 'deploy'
       - 'risk-scoring-service'
-      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/risk-scoring-service:${SHORT_SHA}'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/risk-scoring-service:'
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--no-allow-unauthenticated'
@@ -157,7 +157,7 @@ steps:
       - 'run'
       - 'deploy'
       - 'enforcement-service'
-      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/enforcement-service:${SHORT_SHA}'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/shieldip/enforcement-service:'
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--no-allow-unauthenticated'
@@ -185,6 +185,7 @@ steps:
 substitutions:
   _REGION: 'us-central1'
   _GEMINI_API_KEY: ''
+  _TAG: 'latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY

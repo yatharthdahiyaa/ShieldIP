@@ -77,10 +77,21 @@ PLATFORM_REACH = {
     "TikTok": 25,
     "Instagram": 20,
     "X": 15,
+    "X / Twitter": 15,
+    "Twitter": 15,
     "Twitch": 10,
     "Dailymotion": 8,
     "Facebook": 20,
     "Telegram": 12,
+    "LinkedIn": 18,
+    "Reddit": 16,
+    "Pinterest": 12,
+    "Vimeo": 10,
+    "Tumblr": 8,
+    "Discord": 10,
+    "Know Your Meme": 9,
+    "Imgur": 11,
+    "9GAG": 13,
 }
 
 # ─────────────────────────────────────────────

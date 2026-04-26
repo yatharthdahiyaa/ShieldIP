@@ -94,11 +94,21 @@ PLATFORMS = [
     {"name": "YouTube", "domain": "youtube.com", "path_prefix": "/watch?v="},
     {"name": "TikTok", "domain": "tiktok.com", "path_prefix": "/@{user}/video/"},
     {"name": "Instagram", "domain": "instagram.com", "path_prefix": "/reel/"},
-    {"name": "X", "domain": "x.com", "path_prefix": "/{user}/status/"},
+    {"name": "X / Twitter", "domain": "x.com", "path_prefix": "/{user}/status/"},
+    {"name": "Twitter", "domain": "twitter.com", "path_prefix": "/{user}/status/"},
     {"name": "Twitch", "domain": "twitch.tv", "path_prefix": "/videos/"},
     {"name": "Dailymotion", "domain": "dailymotion.com", "path_prefix": "/video/"},
     {"name": "Facebook", "domain": "facebook.com", "path_prefix": "/watch/"},
     {"name": "Telegram", "domain": "t.me", "path_prefix": "/c/"},
+    {"name": "LinkedIn", "domain": "linkedin.com", "path_prefix": "/"},
+    {"name": "Reddit", "domain": "reddit.com", "path_prefix": "/r/"},
+    {"name": "Pinterest", "domain": "pinterest.com", "path_prefix": "/pin/"},
+    {"name": "Vimeo", "domain": "vimeo.com", "path_prefix": "/"},
+    {"name": "Tumblr", "domain": "tumblr.com", "path_prefix": "/"},
+    {"name": "Discord", "domain": "discord.com", "path_prefix": "/channels/"},
+    {"name": "Know Your Meme", "domain": "knowyourmeme.com", "path_prefix": "/memes/"},
+    {"name": "Imgur", "domain": "imgur.com", "path_prefix": "/"},
+    {"name": "9GAG", "domain": "9gag.com", "path_prefix": "/gag/"},
 ]
 
 REGIONS = [

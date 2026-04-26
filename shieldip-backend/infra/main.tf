@@ -524,7 +524,9 @@ resource "google_cloud_run_v2_service_iam_member" "enforcement_invoker" {
 }
 
 # Allow Pub/Sub SA to invoke internal services
-data "google_project" "current" {}
+data "google_project" "current" {
+  project_id = var.project_id
+}
 
 resource "google_project_iam_member" "pubsub_token_creator" {
   project = var.project_id

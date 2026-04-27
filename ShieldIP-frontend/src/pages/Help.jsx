@@ -57,7 +57,7 @@ const SECTIONS = [
 function Section({ icon: Icon, color, title, content }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+    <div className="gradient-border rounded-xl overflow-hidden">
       <button onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-white/[0.02]"
         style={{ background: 'rgba(255,255,255,0.02)' }}>
@@ -80,9 +80,9 @@ function Section({ icon: Icon, color, title, content }) {
 
 export default function Help() {
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6 max-w-3xl">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-3xl">
       <div>
-        <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+        <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
           <HelpCircle size={22} className="text-cyan" /> Help &amp; Docs
         </h1>
         <p className="text-[13px] mt-1 text-[#555]">How ShieldIP works — click any section to expand</p>
@@ -92,8 +92,7 @@ export default function Help() {
         {SECTIONS.map((s) => <Section key={s.title} {...s} />)}
       </div>
 
-      <div className="rounded-xl p-5 flex items-start gap-4"
-        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+      <div className="gradient-border rounded-xl p-5 flex items-start gap-4">
         <Github size={18} className="text-[#555] mt-0.5 shrink-0" />
         <div>
           <p className="text-[13px] font-semibold text-white">Source Code</p>

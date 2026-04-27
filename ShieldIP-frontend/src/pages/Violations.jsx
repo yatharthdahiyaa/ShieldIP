@@ -108,43 +108,45 @@ export default function Violations() {
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="flex h-full">
-      <div className="flex-1 overflow-y-auto p-8">
-        <div className="flex items-end justify-between mb-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
           <div>
-            <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight">Violations</h1>
+            <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan">Violations</h1>
             <p className="text-[13px] mt-1 text-[#555]">{filtered.length} active threats across all platforms</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap overflow-x-auto pb-1 sm:pb-0">
+            <div className="relative flex-shrink-0">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#444]" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="void-input pl-9 pr-4 py-2 text-[12px] w-52" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="void-input pl-9 pr-4 py-2 text-[12px] w-40 sm:w-52" />
             </div>
-            <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="void-input text-[12px] px-3 py-2">
-              <option value="all">All levels</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-            </select>
-            <select value={filterVariant} onChange={(e) => setFilterVariant(e.target.value)} className="void-input text-[12px] px-3 py-2">
-              <option value="all">All variants</option>
-              <option value="direct_reupload">Direct</option>
-              <option value="clipped_highlight">Clipped</option>
-              <option value="meme_edit">Meme</option>
-              <option value="mirrored">Mirrored</option>
-              <option value="cropped">Cropped</option>
-              <option value="colour_graded">Colour-graded</option>
-            </select>
-            <select value={filterAccount} onChange={(e) => setFilterAccount(e.target.value)} className="void-input text-[12px] px-3 py-2">
-              <option value="all">All accounts</option>
-              <option value="official">Official</option>
-              <option value="unofficial">Unofficial</option>
-              <option value="rights_holder">Rights Holder</option>
-            </select>
-            <select value={filterBrandMisuse} onChange={(e) => setFilterBrandMisuse(e.target.value)} className="void-input text-[12px] px-3 py-2">
-              <option value="all">Brand Misuse</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
+            <div className="flex items-center gap-2 overflow-x-auto flex-shrink-0">
+              <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="void-input text-[12px] px-3 py-2 flex-shrink-0">
+                <option value="all">All levels</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+              </select>
+              <select value={filterVariant} onChange={(e) => setFilterVariant(e.target.value)} className="void-input text-[12px] px-3 py-2 flex-shrink-0">
+                <option value="all">All variants</option>
+                <option value="direct_reupload">Direct</option>
+                <option value="clipped_highlight">Clipped</option>
+                <option value="meme_edit">Meme</option>
+                <option value="mirrored">Mirrored</option>
+                <option value="cropped">Cropped</option>
+                <option value="colour_graded">Colour-graded</option>
+              </select>
+              <select value={filterAccount} onChange={(e) => setFilterAccount(e.target.value)} className="void-input text-[12px] px-3 py-2 flex-shrink-0">
+                <option value="all">All accounts</option>
+                <option value="official">Official</option>
+                <option value="unofficial">Unofficial</option>
+                <option value="rights_holder">Rights Holder</option>
+              </select>
+              <select value={filterBrandMisuse} onChange={(e) => setFilterBrandMisuse(e.target.value)} className="void-input text-[12px] px-3 py-2 flex-shrink-0">
+                <option value="all">Brand Misuse</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -155,20 +157,23 @@ export default function Violations() {
             return (
               <motion.div key={vio.violation_id} variants={staggerItem}
                 onClick={() => analyzeViolation(vio)}
-                className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all duration-200 ${isSelected ? 'ring-1 ring-cyan/30 bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}
+                className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200 ${isSelected ? 'ring-1 ring-cyan/30 bg-white/[0.04]' : 'hover:bg-white/[0.02]'}`}
                 style={{ background: isSelected ? 'rgba(6,182,212,0.04)' : 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
               >
-                <div className="p-2 rounded-lg shrink-0" style={{ background: '#1a1a1a' }}>
-                  <Icon size={16} className="text-[#888]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[13px] font-semibold text-white">{vio.platform}</span>
-                    <span className="font-mono text-[10px] text-[#444]">{vio.violation_id}</span>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="p-2 rounded-lg shrink-0" style={{ background: '#1a1a1a' }}>
+                    <Icon size={16} className="text-[#888]" />
                   </div>
-                  <p className="font-mono text-[10px] text-[#444] truncate">{vio.url}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                      <span className="text-[13px] font-semibold text-white">{vio.platform}</span>
+                      <span className="font-mono text-[10px] text-[#444] hidden sm:inline">{vio.violation_id}</span>
+                      <ThreatBadge score={vio.risk_score} />
+                    </div>
+                    <p className="font-mono text-[10px] text-[#444] truncate max-w-full">{vio.url}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
                   {vio.variant_type && (
                     <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: `${VARIANT_COLORS[vio.variant_type] || '#555'}15`, color: VARIANT_COLORS[vio.variant_type] || '#888' }}>
                       {vio.variant_type.replace(/_/g, ' ')}
@@ -180,10 +185,9 @@ export default function Violations() {
                     </Link>
                   )}
                   <div className="text-right">
-                    <p className="font-mono text-[15px] font-bold text-white">{((vio.match_confidence || 0.9) * 100).toFixed(1)}%</p>
+                    <p className="font-mono text-[14px] sm:text-[15px] font-bold text-white">{((vio.match_confidence || 0.9) * 100).toFixed(1)}%</p>
                     <p className="text-[10px] text-[#555]">match</p>
                   </div>
-                  <ThreatBadge score={vio.risk_score} />
                   {vio.brand_misuse && <ShieldAlert size={14} className="text-primary" title="Brand Misuse" />}
                   <span className="font-mono text-[11px] text-[#444]">{timeAgo(vio.detected_at)}</span>
                 </div>
@@ -195,11 +199,16 @@ export default function Violations() {
 
       <AnimatePresence>
         {selected && (
-          <motion.aside variants={slideRight} initial="initial" animate="animate" exit="exit"
-            className="w-[360px] shrink-0 h-full overflow-y-auto"
-            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(20px)', borderLeft: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <div className="p-5 space-y-4">
+          <>
+            <div className="sm:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setSelected(null)} />
+            <motion.aside variants={slideRight} initial="initial" animate="animate" exit="exit"
+              className="fixed sm:relative z-50 sm:z-auto bottom-0 sm:bottom-auto left-0 right-0 sm:w-[360px] sm:shrink-0 sm:h-full w-full max-h-[85vh] sm:max-h-full overflow-y-auto rounded-t-2xl sm:rounded-none"
+              style={{ background: 'rgba(10,10,10,0.97)', backdropFilter: 'blur(24px)', borderTop: '1px solid rgba(255,255,255,0.08)', borderLeft: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              <div className="sm:hidden flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-white/20" />
+              </div>
+            <div className="p-5 space-y-4 pb-safe">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Brain size={16} className="text-cyan" />
@@ -251,7 +260,8 @@ export default function Violations() {
                 </div>
               ) : null}
             </div>
-          </motion.aside>
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
     </motion.div>

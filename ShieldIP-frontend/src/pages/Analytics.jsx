@@ -56,7 +56,7 @@ const TOOLTIP_STYLE = {
 const PIE_COLORS = ['#ff2d55', '#06b6d4', '#16ff9e', '#f59e0b', '#7c3aed', '#888'];
 
 function Card({ children, className = '' }) {
-  return <div className={`rounded-xl ${className}`} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>{children}</div>;
+  return <div className={`gradient-border rounded-xl ${className}`}>{children}</div>;
 }
 
 export default function Analytics() {
@@ -119,29 +119,28 @@ export default function Analytics() {
   }, [vios]);
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6">
-      <div className="flex items-end justify-between">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+          <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
             <BarChart2 size={22} className="text-cyan" /> Analytics
           </h1>
           <p className="text-[13px] mt-1 text-[#555]">Global violation intelligence & revenue recovery</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <button className="btn-void-ghost flex items-center gap-1.5 text-[12px]"><Calendar size={12} /> 30 Days</button>
           <button className="btn-void-ghost flex items-center gap-1.5 text-[12px]"><Download size={12} /> Export</button>
         </div>
       </div>
 
-      <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {[
           { icon: AlertTriangle, label: 'Total Violations', value: stats.total_violations ?? '—', change: null, color: '#ff2d55' },
           { icon: Shield, label: 'DMCA Success', value: stats.dmca_success_rate != null ? `${Math.round(stats.dmca_success_rate * 100)}%` : 'No data', sub: stats.dmca_success_rate == null ? 'API not returning this field' : null, change: null, color: '#e2e2e2' },
           { icon: DollarSign, label: 'Revenue Recovered', value: stats.revenue_recovered != null ? `$${(stats.revenue_recovered / 1000).toFixed(1)}K` : 'No data', sub: stats.revenue_recovered == null ? 'API not returning this field' : null, change: null, color: '#16ff9e' },
           { icon: Activity, label: 'Active Monitors', value: '—', change: null, color: '#06b6d4' },
         ].map(({ icon: Ic, label, value, change, color }) => (
-          <motion.div key={label} variants={staggerItem} className="rounded-xl p-5 flex items-center gap-4"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <motion.div key={label} variants={staggerItem} className="gradient-border rounded-xl p-5 flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: `${color}10` }}>
               <Ic size={18} style={{ color }} />
             </div>
@@ -178,7 +177,7 @@ export default function Analytics() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="p-6 xl:col-span-2">
           <div className="flex items-center gap-2 mb-5">
             <TrendingUp size={14} className="text-secondary" />

@@ -62,10 +62,10 @@ export default function ApiKeys() {
   const revokedKeys = keys.filter((k) => k.status === 'revoked');
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6 max-w-4xl">
-      <div className="flex items-end justify-between">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-4xl">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+          <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
             <KeyRound size={22} className="text-cyan" /> API Keys
           </h1>
           <p className="text-[13px] mt-1 text-[#555]">{activeKeys.length} active key{activeKeys.length !== 1 ? 's' : ''}</p>
@@ -103,8 +103,7 @@ export default function ApiKeys() {
       <AnimatePresence>
         {showCreate && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="rounded-xl p-5 space-y-4"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            className="gradient-border rounded-xl p-5 space-y-4">
             <p className="text-[14px] font-semibold text-white">New API Key</p>
             <div className="space-y-1">
               <label className="text-[11px] text-[#555] font-semibold uppercase tracking-wide">Key name</label>
@@ -205,8 +204,7 @@ export default function ApiKeys() {
       )}
 
       {/* Info box */}
-      <div className="rounded-xl p-4 text-[12px] text-[#555] space-y-1"
-        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+      <div className="gradient-border rounded-xl p-4 text-[12px] text-[#555] space-y-1">
         <p className="font-semibold text-[#666]">Using API keys</p>
         <p>Include your key in the <code className="text-cyan font-mono">Authorization: Bearer sip_…</code> header on all API requests.</p>
         <p>Keys with <code className="text-[#888] font-mono">admin</code> scope can create/revoke other keys.</p>

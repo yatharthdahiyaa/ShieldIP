@@ -310,7 +310,8 @@ function TreeViewTab({ chainViolations, chain }) {
 
   return (
     <div className="flex gap-4 flex-1 min-h-0">
-      <div className="flex-1 rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex-1 overflow-x-auto">
+      <div className="min-w-[600px] h-full rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', minHeight: 360 }}>
         {nodes.length > 0 ? (
           <ReactFlow nodes={nodes} edges={edges} onNodeClick={onNodeClick} fitView proOptions={{ hideAttribution: true }}>
             <Background color="#222" gap={30} size={1} />
@@ -322,6 +323,7 @@ function TreeViewTab({ chainViolations, chain }) {
             <p className="text-[12px] text-[#555]">No tree data available for this chain.</p>
           </div>
         )}
+      </div>
       </div>
 
       {/* Side panel */}
@@ -557,11 +559,11 @@ export default function Traceability() {
   }, []);
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-6 h-full flex flex-col gap-4">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 h-full flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+          <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
             <GitBranch size={22} className="text-cyan" /> Traceability
           </h1>
           <p className="text-[13px] mt-1 text-[#555]">
@@ -577,13 +579,13 @@ export default function Traceability() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 p-1 rounded-lg w-fit" style={{ background: 'rgba(255,255,255,0.03)' }}>
+      <div className="flex gap-1 p-1 rounded-lg overflow-x-auto" style={{ background: 'rgba(255,255,255,0.03)' }}>
         {TABS.map((t) => {
           const active = tab === t.key;
           return (
             <button key={t.key}
               onClick={() => { setTab(t.key); if (t.key === 'list') setActiveChainId(null); }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-[12px] font-medium transition-all ${active ? 'bg-white/[0.06] text-white' : 'text-[#555] hover:text-[#888]'}`}>
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-[12px] font-medium transition-all flex-shrink-0 ${active ? 'bg-white/[0.06] text-white' : 'text-[#555] hover:text-[#888]'}`}>
               <t.icon size={13} /> {t.label}
             </button>
           );

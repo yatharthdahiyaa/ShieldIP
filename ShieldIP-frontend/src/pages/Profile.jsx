@@ -35,16 +35,16 @@ export default function Profile() {
   };
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6 max-w-3xl">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-3xl">
       <div>
-        <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+        <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
           <User size={22} className="text-cyan" /> Profile
         </h1>
         <p className="text-[13px] mt-1 text-[#555]">Manage your account and API access</p>
       </div>
 
-      <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-start gap-6">
+      <div className="gradient-border rounded-xl p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
           <div className="relative group">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan/20 to-violet/20 flex items-center justify-center border-2 border-cyan/20">
               <User size={32} className="text-cyan" />
@@ -65,7 +65,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {[
           { icon: Shield, label: 'Assets Protected', value: profile.assetsProtected, color: '#16ff9e' },
           { icon: Globe, label: 'API Calls (30d)', value: profile.apiCalls, color: '#06b6d4' },
@@ -83,7 +83,7 @@ export default function Profile() {
         ))}
       </div>
 
-      <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="gradient-border rounded-xl p-6">
         <div className="flex items-center gap-3 mb-5">
           <KeyRound size={16} className="text-cyan" />
           <h3 className="font-display font-bold text-[16px] text-white">API Key</h3>
@@ -103,7 +103,7 @@ export default function Profile() {
         <p className="text-[11px] text-[#555] mt-2">Use this key to authenticate API requests. Keep it secret.</p>
       </div>
 
-      <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="gradient-border rounded-xl p-6">
         <h3 className="font-display font-bold text-[16px] text-white mb-4">Quick Links</h3>
         <div className="space-y-2">
           {[

@@ -74,17 +74,17 @@ export default function Enforcement() {
   };
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
       <div>
-        <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+        <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
           <Scale size={22} className="text-primary" /> Enforcement Engine
         </h1>
         <p className="text-[13px] mt-1 text-[#555]">AI-assisted legal action pipeline</p>
       </div>
 
-      <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="gradient-border rounded-xl p-6">
         <p className="void-label mb-3">Select a violation to enforce</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto">
           {vios.map((v) => (
             <button key={v.violation_id} onClick={() => setSelected(v)}
               className={`flex items-center gap-3 p-3 rounded-lg text-left transition-all ${selected?.violation_id === v.violation_id ? 'ring-1 ring-cyan/30 bg-cyan/5' : 'hover:bg-white/[0.02]'}`}
@@ -105,20 +105,20 @@ export default function Enforcement() {
           <p className="text-[13px] text-[#555]">Select a violation above to activate enforcement options.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {ACTIONS.map((action) => {
             const Icon = action.icon;
             return (
               <motion.button key={action.id} whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }}
                 onClick={() => handleAction(action, selected)}
-                className="group rounded-xl p-6 flex flex-col items-center gap-4 text-center transition-all duration-300"
+                className="group rounded-xl p-4 sm:p-6 flex flex-col items-center gap-3 sm:gap-4 text-center transition-all duration-300"
                 style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${action.color}15` }}>
-                <div className="w-14 h-14 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
                      style={{ background: `${action.color}10`, border: `1px solid ${action.color}20` }}>
                   <Icon size={26} style={{ color: action.color }} />
                 </div>
                 <div>
-                  <p className="font-display font-bold text-[14px]" style={{ color: action.color }}>{action.label}</p>
+                  <p className="font-display font-bold text-[13px] sm:text-[14px]" style={{ color: action.color }}>{action.label}</p>
                   <p className="text-[11px] mt-1 text-[#555]">{action.sub}</p>
                 </div>
                 {action.usesAI && <span className="void-badge text-[9px] px-2 py-0.5" style={{ background: 'rgba(22,255,158,0.08)', color: '#16ff9e', border: '1px solid rgba(22,255,158,0.1)' }}><Cpu size={8} className="inline mr-1" />AI-Generated</span>}
@@ -132,7 +132,7 @@ export default function Enforcement() {
       )}
 
       {enforcementLogs.length > 0 && (
-        <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="gradient-border rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <Clock size={13} className="text-[#555]" />
             <h3 className="font-display font-bold text-[14px] text-white">Enforcement Log</h3>
@@ -163,7 +163,7 @@ export default function Enforcement() {
             onClick={() => setModal(false)}>
             <motion.div variants={scaleIn} initial="initial" animate="animate" exit="exit"
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-2xl rounded-xl p-7"
+              className="w-full max-w-lg mx-4 sm:mx-0 max-h-[90vh] sm:max-h-[80vh] overflow-y-auto rounded-2xl p-5 sm:p-7"
               style={{ background: '#131313', border: '1px solid rgba(255,255,255,0.08)' }}>
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">

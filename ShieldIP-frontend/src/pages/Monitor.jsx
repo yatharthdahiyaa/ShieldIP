@@ -74,17 +74,17 @@ export default function Monitor() {
     : null;
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6">
-      <div className="flex items-end justify-between">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+          <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
             <Radio size={22} className="text-cyan" /> Global Monitor
           </h1>
           <p className="text-[13px] mt-1" style={{ color: '#555' }}>
             Violation hotspot map — data from backend API (polls every 10s)
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px]"
                style={{ background: 'rgba(255,45,85,0.06)', border: '1px solid rgba(255,45,85,0.12)', color: '#ff2d55' }}>
             <AlertTriangle size={13} />
@@ -122,7 +122,7 @@ export default function Monitor() {
         </div>
       )}
 
-      <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="gradient-border rounded-xl overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
           <Globe size={14} className="text-primary" />
           <h3 className="font-display font-bold text-[14px] text-white">Violation Hotspots</h3>
@@ -132,7 +132,7 @@ export default function Monitor() {
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-cyan" /> Active</span>
           </div>
         </div>
-        <div style={{ background: '#050505', height: 440 }}>
+        <div className="w-full" style={{ background: '#050505', height: 'clamp(200px, 45vw, 440px)' }}>
           <ComposableMap projectionConfig={{ scale: 148 }} style={{ width: '100%', height: '100%' }}>
             <ZoomableGroup>
               <Geographies geography={GEO_URL}>
@@ -162,10 +162,9 @@ export default function Monitor() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {hotspots.map((spot) => (
-          <div key={spot.name} className="rounded-xl p-5 hover:bg-white/[0.04] transition-colors"
-               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div key={spot.name} className="gradient-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-display font-bold text-[14px] text-white">{spot.name}</h4>
               <span className="font-mono text-[11px] font-bold text-primary">{spot.count} threats</span>

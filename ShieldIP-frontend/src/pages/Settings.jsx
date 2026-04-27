@@ -127,16 +127,16 @@ export default function Settings() {
   const platforms = Object.entries(draft.monitoredPlatforms);
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6 max-w-3xl">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-3xl">
       <div>
-        <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+        <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
           <SettingsIcon size={22} className="text-cyan" /> Settings
         </h1>
         <p className="text-[13px] mt-1 text-[#555]">Configure your ShieldIP experience — changes are staged until you click Save.</p>
       </div>
 
       {/* Tab Bar */}
-      <div className="flex gap-1 p-1 rounded-lg w-fit" style={{ background: 'rgba(255,255,255,0.03)' }}>
+      <div className="flex gap-1 p-1 rounded-lg overflow-x-auto" style={{ background: 'rgba(255,255,255,0.03)' }}>
         {TABS.map((t) => {
           const Icon = t.icon;
           const active = activeTab === t.key;
@@ -145,7 +145,7 @@ export default function Settings() {
               key={t.key}
               id={`settings-tab-${t.key}`}
               onClick={() => setActiveTab(t.key)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-[12px] font-medium transition-all ${active ? 'bg-white/[0.07] text-white' : 'text-[#555] hover:text-[#888]'}`}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-[12px] font-medium transition-all flex-shrink-0 ${active ? 'bg-white/[0.07] text-white' : 'text-[#555] hover:text-[#888]'}`}
             >
               <Icon size={13} /> {t.label}
             </button>
@@ -157,7 +157,7 @@ export default function Settings() {
       <div>
         {/* Scanning */}
         <div style={{ display: activeTab === 'scanning' ? 'block' : 'none' }}>
-          <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="gradient-border rounded-xl p-6">
             <SettingRow label="Scan Frequency" description="How often to check for new violations (seconds)" error={errors.scanFrequency}>
               <SliderInput id="setting-scan-freq" value={draft.scanFrequency} onChange={(v) => set('scanFrequency', v)} min={1} max={60} />
             </SettingRow>
@@ -172,7 +172,7 @@ export default function Settings() {
 
         {/* Platforms */}
         <div style={{ display: activeTab === 'platforms' ? 'block' : 'none' }}>
-          <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="gradient-border rounded-xl p-6">
             {platforms.map(([name, enabled]) => (
               <SettingRow key={name} label={name} description={`Monitor violations on ${name}`}>
                 <Toggle id={`setting-platform-${name}`} value={enabled} onChange={(v) => setNested('monitoredPlatforms', name, v)} />
@@ -183,7 +183,7 @@ export default function Settings() {
 
         {/* Notifications */}
         <div style={{ display: activeTab === 'alerts' ? 'block' : 'none' }}>
-          <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="gradient-border rounded-xl p-6">
             <SettingRow label="Email Alerts" description="Receive email for new critical violations">
               <Toggle id="setting-email-alerts" value={draft.emailAlerts} onChange={(v) => set('emailAlerts', v)} />
             </SettingRow>
@@ -219,7 +219,7 @@ export default function Settings() {
 
         {/* Appearance */}
         <div style={{ display: activeTab === 'appearance' ? 'block' : 'none' }}>
-          <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="gradient-border rounded-xl p-6">
             <SettingRow label="Aurora Intensity" description="Background glow intensity (0 = off, 100 = full)">
               <SliderInput id="setting-aurora" value={draft.auroraIntensity} onChange={(v) => set('auroraIntensity', v)} min={0} max={100} />
             </SettingRow>
@@ -231,7 +231,7 @@ export default function Settings() {
 
         {/* Risk Weights */}
         <div style={{ display: activeTab === 'risk' ? 'block' : 'none' }}>
-          <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="gradient-border rounded-xl p-6">
             {errors.riskWeights && (
               <div className="mb-4 flex items-center gap-2 px-4 py-2 rounded-lg text-[12px]"
                    style={{ background: 'rgba(255,45,85,0.06)', border: '1px solid rgba(255,45,85,0.15)', color: '#ff2d55' }}>

@@ -10,8 +10,174 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
     <title>ShieldIP | Obsidian Watchtower</title>
+    <style id="boot-styles">
+      *{margin:0;padding:0;box-sizing:border-box}
+      #boot-screen{position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;font-family:'Inter',sans-serif;transition:opacity .7s}
+      #boot-screen.fade-out{opacity:0;pointer-events:none}
+      /* grid bg */
+      #boot-screen::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(6,182,212,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(6,182,212,.04) 1px,transparent 1px);background-size:44px 44px;pointer-events:none}
+      /* radial glow */
+      #boot-screen::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 55% 45% at 50% 42%,rgba(6,182,212,.08) 0%,transparent 70%);pointer-events:none}
+      /* shield container */
+      .boot-shield-wrap{position:relative;width:220px;height:220px;margin-bottom:28px;perspective:700px;opacity:0;transform:scale(.4);animation:boot-shield-in 1s .4s cubic-bezier(.16,1,.3,1) forwards}
+      @keyframes boot-shield-in{to{opacity:1;transform:scale(1)}}
+      /* 3d ring scene */
+      .boot-rings{position:absolute;inset:0;transform-style:preserve-3d}
+      /* individual ring */
+      .boot-ring{position:absolute;border-radius:50%;border:1px solid;opacity:.35}
+      .boot-ring-1{width:190px;height:190px;top:15px;left:15px;border-color:#06b6d4;transform:rotateX(72deg);animation:ring-spin 4.8s linear infinite}
+      .boot-ring-2{width:155px;height:155px;top:32px;left:32px;border-color:#16ff9e;transform:rotateX(54deg) rotateY(65deg);animation:ring-spin 7.2s linear infinite}
+      .boot-ring-3{width:210px;height:210px;top:5px;left:5px;border-color:#a78bfa;transform:rotateX(62deg) rotateY(130deg);animation:ring-spin 10s linear infinite}
+      @keyframes ring-spin{to{transform:rotateX(var(--rx,72deg)) rotateY(var(--ry,0deg)) rotateZ(360deg)}}
+      .boot-ring-1{--rx:72deg;--ry:0deg}
+      .boot-ring-2{--rx:54deg;--ry:65deg}
+      .boot-ring-3{--rx:62deg;--ry:130deg}
+      /* orbiting dot */
+      .boot-dot{position:absolute;width:7px;height:7px;border-radius:50%;top:-3px;left:50%;margin-left:-3px}
+      .boot-dot-1{background:#06b6d4;box-shadow:0 0 10px 2px #06b6d4}
+      .boot-dot-2{background:#16ff9e;box-shadow:0 0 10px 2px #16ff9e;width:6px;height:6px}
+      .boot-dot-3{background:#a78bfa;box-shadow:0 0 10px 2px #a78bfa;width:5px;height:5px}
+      /* shield SVG */
+      .boot-svg-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+      .boot-svg-wrap svg{filter:drop-shadow(0 0 20px rgba(6,182,212,.3))}
+      /* pulse glow */
+      .boot-pulse{position:absolute;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle,rgba(6,182,212,.45) 0%,transparent 70%);animation:boot-pulse-kf 2.6s ease-in-out infinite}
+      @keyframes boot-pulse-kf{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.7);opacity:.15}}
+      /* shield rock */
+      .boot-rock{animation:boot-rock-kf 7s ease-in-out infinite}
+      @keyframes boot-rock-kf{0%,100%{transform:rotateY(0) rotateX(0)}25%{transform:rotateY(9deg) rotateX(3deg)}75%{transform:rotateY(-9deg) rotateX(-3deg)}}
+      /* scanline */
+      .boot-scanline{animation:boot-scan 2.2s ease-in-out infinite}
+      @keyframes boot-scan{0%,100%{transform:translateY(19px)}50%{transform:translateY(85px)}}
+      /* title */
+      .boot-title{display:flex;gap:3px;font-family:'Manrope',sans-serif;font-weight:800;font-size:30px;letter-spacing:.25em;margin-bottom:10px;color:#fff}
+      .boot-title span{opacity:0;transform:translateY(-18px);filter:blur(8px);transition:all .22s}
+      .boot-title span.show{opacity:1;transform:translateY(0);filter:blur(0);text-shadow:0 0 22px rgba(6,182,212,.7),0 0 6px rgba(6,182,212,.4)}
+      .boot-title.glitch{animation:glitch-kf .25s}
+      @keyframes glitch-kf{0%{transform:translateX(0) skewX(0)}20%{transform:translateX(-3px) skewX(-4deg)}40%{transform:translateX(3px) skewX(4deg)}60%{transform:translateX(-1px) skewX(0)}80%{transform:translateX(2px) skewX(0)}100%{transform:translateX(0) skewX(0)}}
+      /* subtitle */
+      .boot-subtitle{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.35em;text-transform:uppercase;color:rgba(255,255,255,.42);opacity:0;transform:translateY(6px);transition:all .55s}
+      .boot-subtitle.show{opacity:1;transform:translateY(0)}
+      /* boot log */
+      .boot-log{width:100%;max-width:360px;padding:0 24px;font-family:'JetBrains Mono',monospace;font-size:11px;opacity:0;transition:opacity .3s}
+      .boot-log.show{opacity:1}
+      .boot-line{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;opacity:0;transform:translateX(-14px);transition:all .22s}
+      .boot-line.show{opacity:1;transform:translateX(0)}
+      .boot-line .txt{color:rgba(255,255,255,.45)}
+      .boot-line .ok{color:#16ff9e;font-weight:700;margin-left:16px;white-space:nowrap;text-shadow:0 0 8px rgba(22,255,158,.55);opacity:0;transform:scale(.5);transition:all .2s}
+      .boot-line .ok.show{opacity:1;transform:scale(1)}
+      .boot-bar{margin-top:16px;height:2px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden}
+      .boot-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#06b6d4,#16ff9e);width:0%;transition:width .3s ease-out}
+      .boot-ver{font-size:9px;color:rgba(255,255,255,.2);margin-top:8px;text-align:right;letter-spacing:.15em}
+      /* corners */
+      .boot-corner{position:absolute;width:18px;height:18px}
+      .boot-corner.tl{top:20px;left:20px;border-top:1.5px solid rgba(6,182,212,.35);border-left:1.5px solid rgba(6,182,212,.35)}
+      .boot-corner.tr{top:20px;right:20px;border-top:1.5px solid rgba(6,182,212,.35);border-right:1.5px solid rgba(6,182,212,.35)}
+      .boot-corner.bl{bottom:20px;left:20px;border-bottom:1.5px solid rgba(6,182,212,.35);border-left:1.5px solid rgba(6,182,212,.35)}
+      .boot-corner.br{bottom:20px;right:20px;border-bottom:1.5px solid rgba(6,182,212,.35);border-right:1.5px solid rgba(6,182,212,.35)}
+      /* canvas */
+      #boot-canvas{position:absolute;inset:0;width:100%;height:100%}
+    </style>
   </head>
   <body>
+    <!-- ═══ 3D BOOT SCREEN (pure HTML/CSS/JS, runs before React) ═══ -->
+    <div id="boot-screen">
+      <canvas id="boot-canvas"></canvas>
+      <div class="boot-shield-wrap">
+        <div class="boot-rings">
+          <div class="boot-ring boot-ring-1"><div class="boot-dot boot-dot-1"></div></div>
+          <div class="boot-ring boot-ring-2"><div class="boot-dot boot-dot-2"></div></div>
+          <div class="boot-ring boot-ring-3"><div class="boot-dot boot-dot-3"></div></div>
+        </div>
+        <div class="boot-svg-wrap">
+          <div class="boot-pulse"></div>
+          <div class="boot-rock">
+            <svg width="96" height="108" viewBox="0 0 80 92">
+              <defs>
+                <linearGradient id="bsg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#0891b2" stop-opacity=".5"/></linearGradient>
+                <linearGradient id="bsg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#16ff9e" stop-opacity=".9"/><stop offset="100%" stop-color="#06b6d4" stop-opacity=".3"/></linearGradient>
+                <clipPath id="bsc"><path d="M40 4 L74 19 L74 44 C74 63 58 77 40 85 C22 77 6 63 6 44 L6 19 Z"/></clipPath>
+              </defs>
+              <path d="M40 4 L74 19 L74 44 C74 63 58 77 40 85 C22 77 6 63 6 44 L6 19 Z" fill="url(#bsg1)" fill-opacity=".18" stroke="#06b6d4" stroke-width="1.5"/>
+              <path d="M40 20 L60 29 L60 44 C60 55 51 63 40 68 C29 63 20 55 20 44 L20 29 Z" fill="url(#bsg2)" fill-opacity=".22" stroke="#16ff9e" stroke-width="1" stroke-opacity=".5"/>
+              <path d="M40 33 L50 38 L50 45 C50 51 45 55 40 57 C35 55 30 51 30 45 L30 38 Z" fill="#06b6d4" fill-opacity=".55"/>
+              <rect class="boot-scanline" x="6" width="68" height="2.5" fill="url(#bsg2)" fill-opacity=".5" clip-path="url(#bsc)"/>
+              <path d="M40 4 L74 19 L74 44 C74 63 58 77 40 85" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.5"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="boot-title" id="boot-title"></div>
+      <div class="boot-subtitle" id="boot-subtitle">AI Content Protection Platform</div>
+      <div class="boot-log" id="boot-log"></div>
+      <div class="boot-corner tl"></div><div class="boot-corner tr"></div>
+      <div class="boot-corner bl"></div><div class="boot-corner br"></div>
+    </div>
+
+    <script>
+    (function(){
+      var el=document.getElementById('boot-screen');if(!el)return;
+      // particle canvas
+      var c=document.getElementById('boot-canvas'),ctx=c.getContext('2d');
+      c.width=window.innerWidth;c.height=window.innerHeight;
+      var W=c.width,H=c.height,cx=W/2,cy=H/2,COLS=['#06b6d4','#16ff9e','#fff','#a78bfa'];
+      var pts=[];for(var i=0;i<120;i++){var a=Math.random()*Math.PI*2,r=140+Math.random()*Math.max(W,H)*.55;
+        pts.push({sx:cx+Math.cos(a)*r,sy:cy+Math.sin(a)*r,tx:cx+(Math.random()-.5)*110,ty:cy+(Math.random()-.5)*110,t:Math.random(),sp:.0035+Math.random()*.005,sz:.6+Math.random()*1.4,cl:COLS[Math.floor(Math.random()*4)]});}
+      function draw(){ctx.clearRect(0,0,W,H);pts.forEach(function(p){
+        p.t=p.t>=1?0:p.t+p.sp;var e=p.t<.5?2*p.t*p.t:-1+(4-2*p.t)*p.t;
+        var x=p.sx+(p.tx-p.sx)*e,y=p.sy+(p.ty-p.sy)*e;
+        var al=p.t<.2?p.t/.2:p.t>.75?(1-p.t)/.25:1;
+        var tp=Math.max(0,p.t-.07),te=tp<.5?2*tp*tp:-1+(4-2*tp)*tp;
+        ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(p.sx+(p.tx-p.sx)*te,p.sy+(p.ty-p.sy)*te);
+        ctx.strokeStyle=p.cl;ctx.globalAlpha=al*.18;ctx.lineWidth=p.sz*.7;ctx.stroke();
+        ctx.beginPath();ctx.arc(x,y,p.sz,0,Math.PI*2);ctx.fillStyle=p.cl;ctx.globalAlpha=al*.55;ctx.fill();
+      });ctx.globalAlpha=1;requestAnimationFrame(draw);}
+      draw();
+
+      // title typing
+      var title='SHIELDIP',titleEl=document.getElementById('boot-title');
+      title.split('').forEach(function(ch){var s=document.createElement('span');s.textContent=ch;titleEl.appendChild(s);});
+      var spans=titleEl.querySelectorAll('span');
+      var T=performance.now();
+      function typeAt(i,ms){setTimeout(function(){if(spans[i])spans[i].classList.add('show')},ms);}
+      for(var j=0;j<title.length;j++) typeAt(j,500+j*75);
+      var lastL=500+(title.length-1)*75;
+      setTimeout(function(){titleEl.classList.add('glitch')},lastL+10);
+      setTimeout(function(){titleEl.classList.remove('glitch')},lastL+290);
+      setTimeout(function(){document.getElementById('boot-subtitle').classList.add('show')},lastL+300);
+
+      // boot log
+      var lines=[
+        {text:'Initialising content fingerprint engine...',delay:0},
+        {text:'Connecting to monitoring network...',delay:400},
+        {text:'Loading AI risk scoring models...',delay:800},
+        {text:'Establishing enforcement pipeline...',delay:1200},
+        {text:'Syncing analytics dashboard...',delay:1600}
+      ];
+      var logEl=document.getElementById('boot-log');
+      lines.forEach(function(l){
+        var row=document.createElement('div');row.className='boot-line';
+        row.innerHTML='<span class="txt">&gt; '+l.text+'</span><span class="ok">[OK]</span>';
+        logEl.appendChild(row);
+      });
+      var bar=document.createElement('div');bar.className='boot-bar';bar.innerHTML='<div class="boot-bar-fill"></div>';logEl.appendChild(bar);
+      var ver=document.createElement('div');ver.className='boot-ver';ver.textContent='v2.0 \u2014 BUILD '+new Date().getFullYear();logEl.appendChild(ver);
+      var logStart=lastL+1200;
+      setTimeout(function(){logEl.classList.add('show')},logStart);
+      var logRows=logEl.querySelectorAll('.boot-line');
+      var fill=logEl.querySelector('.boot-bar-fill');
+      lines.forEach(function(l,idx){
+        setTimeout(function(){logRows[idx].classList.add('show');fill.style.width=((idx+.5)/lines.length*100)+'%'},logStart+l.delay);
+        setTimeout(function(){logRows[idx].querySelector('.ok').classList.add('show');fill.style.width=((idx+1)/lines.length*100)+'%'},logStart+l.delay+340);
+      });
+
+      // fade out & remove
+      var endMs=logStart+lines[lines.length-1].delay+580;
+      setTimeout(function(){el.classList.add('fade-out')},endMs);
+      setTimeout(function(){el.remove();var s=document.getElementById('boot-styles');if(s)s.remove()},endMs+750);
+    })();
+    </script>
+
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

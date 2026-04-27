@@ -27,16 +27,16 @@ const TOOLTIP_STYLE = {
 
 function KpiCard({ icon: Icon, label, value, sub, change, accentColor }) {
   return (
-    <motion.div variants={staggerItem} className="group relative rounded-xl p-5 flex items-center gap-4 overflow-hidden transition-all duration-300 hover:translate-y-[-2px]"
-      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}
+    <motion.div variants={staggerItem} className="group gradient-border rounded-xl p-4 sm:p-5 flex items-center gap-3 sm:gap-4"
+      style={{ backdropFilter: 'blur(12px)' }}
     >
-      <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110"
+      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110"
            style={{ background: `${accentColor}10`, border: `1px solid ${accentColor}18` }}>
         <Icon size={20} style={{ color: accentColor }} />
       </div>
       <div className="min-w-0">
         <p className="void-label mb-1">{label}</p>
-        <p className="font-display font-extrabold text-[24px] text-white leading-none tracking-tight">{value}</p>
+        <p className="font-display font-extrabold text-[20px] sm:text-[24px] text-white leading-none tracking-tight">{value}</p>
         <div className="flex items-center gap-2 mt-1">
           {sub && <p className="text-[11px]" style={{ color: '#444' }}>{sub}</p>}
           {change && (
@@ -46,8 +46,6 @@ function KpiCard({ icon: Icon, label, value, sub, change, accentColor }) {
           )}
         </div>
       </div>
-      <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-           style={{ boxShadow: `inset 0 0 40px ${accentColor}08, 0 0 0 1px ${accentColor}15` }} />
     </motion.div>
   );
 }
@@ -89,10 +87,12 @@ export default function Dashboard() {
   if (vLoading && sLoading) return <div className="p-10"><SkeletonCard count={4} /></div>;
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6">
-      <div>
-        <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight">Command Center</h1>
-        <p className="text-[13px] mt-1" style={{ color: '#555' }}>Real-time IP protection overview</p>
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+        <div>
+          <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan">Command Center</h1>
+          <p className="text-[13px] mt-1" style={{ color: '#555' }}>Real-time IP protection overview</p>
+        </div>
       </div>
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -102,27 +102,28 @@ export default function Dashboard() {
         <KpiCard icon={Activity} label="Protected Assets" value={stats.total_assets ?? '—'} sub="Registered" accentColor="#06b6d4" />
       </motion.div>
 
-      <div className="rounded-xl px-6 py-4 flex items-center gap-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="rounded-xl px-6 py-4 flex items-center gap-5 shimmer-line" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <Zap size={16} className="text-primary shrink-0" />
         <div className="flex-1">
           <p className="font-display font-bold text-[14px] text-white">Weekly Resolution Rate</p>
           <p className="void-label">{totalResolved} of {totalWeekly} resolved</p>
         </div>
-        <div className="flex items-center gap-5">
-          <div className="w-48 h-[3px] rounded-full overflow-hidden" style={{ background: '#1b1b1b' }}>
+        <div className="flex items-center flex-wrap gap-3 sm:gap-5">
+          <div className="w-24 sm:w-48 h-[3px] rounded-full overflow-hidden" style={{ background: '#1b1b1b' }}>
             <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${resolveRate}%`, background: '#16ff9e', boxShadow: '0 0 8px rgba(22,255,158,0.5)' }} />
           </div>
           <span className="font-mono font-bold text-[18px]" style={{ color: '#16ff9e' }}>{resolveRate}%</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="gradient-border rounded-xl p-6">
           <div className="flex items-center gap-2 mb-5">
             <TrendingUp size={14} className="text-secondary" />
             <h3 className="font-display font-bold text-[14px] text-white">Weekly Trends</h3>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
+          <div className="h-40 sm:h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
             {weeklyChartData.length > 0 ? (
             <AreaChart data={weeklyChartData} margin={{ top: 4, right: 4, left: -22, bottom: 4 }}>
               <defs>
@@ -147,14 +148,16 @@ export default function Dashboard() {
               </div>
             )}
           </ResponsiveContainer>
+          </div>
         </div>
 
-        <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="gradient-border rounded-xl p-6">
           <div className="flex items-center gap-2 mb-5">
             <Globe size={14} className="text-primary" />
             <h3 className="font-display font-bold text-[14px] text-white">By Platform</h3>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
+          <div className="h-40 sm:h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={platforms} margin={{ top: 4, right: 4, left: -22, bottom: 4 }}>
               <XAxis dataKey="platform" tick={{ fill: '#444', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#444', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -168,6 +171,7 @@ export default function Dashboard() {
               <Bar dataKey="violations" fill="url(#barGrad)" radius={[4, 4, 0, 0]} maxBarSize={40} />
             </BarChart>
           </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
@@ -177,7 +181,7 @@ export default function Dashboard() {
           <GitBranch size={14} className="text-cyan" />
           <h3 className="font-display font-bold text-[14px] text-white">Traceability Summary</h3>
         </div>
-        <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           <KpiCard icon={Target} label="Origin Sources" value={trace.origin_sources} sub="Identified" accentColor="#ff2d55" />
           <KpiCard icon={TreePine} label="Deepest Chain" value={`${trace.deepest_chain} hops`} sub="Max depth" accentColor="#16ff9e" />
           <KpiCard icon={Zap} label="Fastest Spread" value={`${trace.fastest_spread_velocity}/hr`} sub="Nodes per hour" accentColor="#f59e0b" />
@@ -185,9 +189,9 @@ export default function Dashboard() {
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Active Chain widget */}
-        <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="gradient-border rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <GitBranch size={14} className="text-cyan" />
             <h3 className="font-display font-bold text-[14px] text-white">Fastest Active Chain</h3>
@@ -218,28 +222,30 @@ export default function Dashboard() {
         </div>
 
         {/* Recent Threats */}
-        <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="gradient-border rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle size={14} className="text-primary" />
             <h3 className="font-display font-bold text-[14px] text-white">Recent Threats</h3>
             <span className="ml-auto text-[11px] font-mono text-[#555]">Last 10</span>
           </div>
-          <div className="space-y-2">
-            {vios.slice(0, 6).map((v) => (
-              <div key={v.violation_id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/[0.02] transition-colors">
-                <div className="flex items-center gap-3">
-                  <span className={`w-2 h-2 rounded-full ${v.risk_score > 80 ? 'bg-primary' : v.risk_score > 55 ? 'bg-orange-400' : 'bg-secondary'}`} />
-                  <span className="text-[13px] text-white font-medium">{v.platform}</span>
-                  <span className="font-mono text-[10px] text-[#444]">{v.violation_id}</span>
+          <div className="overflow-x-auto -mx-2 px-2">
+            <div className="space-y-2 min-w-[420px] sm:min-w-0">
+              {vios.slice(0, 6).map((v) => (
+                <div key={v.violation_id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-2 h-2 rounded-full ${v.risk_score > 80 ? 'bg-primary' : v.risk_score > 55 ? 'bg-orange-400' : 'bg-secondary'}`} />
+                    <span className="text-[13px] text-white font-medium">{v.platform}</span>
+                    <span className="font-mono text-[10px] text-[#444]">{v.violation_id}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-mono text-[12px] text-[#888]">{Number(v.risk_score).toFixed(1)}%</span>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${v.threat_level === 'critical' ? 'bg-primary/10 text-primary' : v.threat_level === 'high' ? 'bg-orange-500/10 text-orange-400' : 'bg-white/5 text-[#888]'}`}>
+                      {v.threat_level}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="font-mono text-[12px] text-[#888]">{Number(v.risk_score).toFixed(1)}%</span>
-                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${v.threat_level === 'critical' ? 'bg-primary/10 text-primary' : v.threat_level === 'high' ? 'bg-orange-500/10 text-orange-400' : 'bg-white/5 text-[#888]'}`}>
-                    {v.threat_level}
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -25,10 +25,10 @@ export default function Notifications() {
   const unreadCount = alerts.filter((a) => !a.read).length;
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6">
-      <div className="flex items-end justify-between">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+          <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
             <Bell size={22} className="text-cyan" /> Notifications
           </h1>
           <p className="text-[13px] mt-1 text-[#555]">{unreadCount} unread alert{unreadCount !== 1 ? 's' : ''}</p>

@@ -1,13 +1,12 @@
 import React, { useState, lazy, Suspense } from 'react';
+import { X } from 'lucide-react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import Sidebar from './components/Sidebar';
-import BootScreen from './components/BootScreen';
 import StarField from './components/StarField';
 import AuroraBackground from './components/AuroraBackground';
 import Toast from './components/Toast';
 import CommandPalette from './components/CommandPalette';
-import useAppStore from './store/useAppStore';
 import ErrorBoundary from './components/ErrorBoundary';
 import { MobileMenuContext } from './context/MobileMenuContext';
 
@@ -28,20 +27,17 @@ const Help           = lazy(() => import('./pages/Help'));
 function PageLoader() {
   return (
     <div className="flex-1 flex items-center justify-center">
-      <div className="w-8 h-8 rounded-full border-2 border-cyan/20 border-t-cyan animate-spin" />
+      <div className="relative">
+        <div className="w-10 h-10 rounded-full border-2 border-cyan/10 border-t-cyan animate-spin" />
+        <div className="absolute inset-0 w-10 h-10 rounded-full border-2 border-transparent border-b-secondary/30 animate-spin" style={{ animationDuration: '1.5s', animationDirection: 'reverse' }} />
+        <div className="absolute inset-1/2 w-2 h-2 -ml-1 -mt-1 rounded-full bg-cyan/50 animate-pulse" />
+      </div>
     </div>
   );
 }
 
 export default function App() {
-  const bootComplete = useAppStore((s) => s.bootComplete);
-  const hasBooted = sessionStorage.getItem('shieldip_boot') === 'true';
-  const [showApp, setShowApp] = useState(hasBooted);
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  if (!showApp && !hasBooted) {
-    return <BootScreen onComplete={() => setShowApp(true)} />;
-  }
 
   return (
     <MobileMenuContext.Provider value={{ open: mobileOpen, setOpen: setMobileOpen }}>
@@ -49,26 +45,30 @@ export default function App() {
         <StarField />
         <AuroraBackground />
         <div className="fixed inset-0 z-[2] pointer-events-none"
-             style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+             style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+        <div className="noise-overlay" />
 
         {/* Mobile hamburger */}
         <button
-          className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg text-white"
-          style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.12)' }}
+          className="md:hidden fixed top-4 left-4 z-[60] p-2.5 rounded-xl text-white transition-colors"
+          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}
           onClick={() => setMobileOpen((o) => !o)}
           aria-label="Toggle menu"
         >
-          ☰
+          {mobileOpen
+            ? <X size={18} />
+            : <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect y="3" width="18" height="1.5" rx="1" fill="currentColor"/><rect y="8.25" width="18" height="1.5" rx="1" fill="currentColor"/><rect y="13.5" width="18" height="1.5" rx="1" fill="currentColor"/></svg>
+          }
         </button>
 
-        {/* Mobile overlay */}
+        {/* Mobile overlay backdrop */}
         {mobileOpen && (
-          <div className="md:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setMobileOpen(false)} />
+          <div className="md:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
         )}
 
         <div className="relative z-10 flex w-full h-full">
           <Sidebar />
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
             <ErrorBoundary>
               <Suspense fallback={<PageLoader />}>
                 <AnimatePresence mode="wait">

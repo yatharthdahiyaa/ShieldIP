@@ -28,25 +28,27 @@ const ACCOUNT_NAV = [
   { to: '/help',     icon: HelpCircle, label: 'Help & Docs' },
 ];
 
-function NavItem({ to, icon: Icon, label, collapsed, badge }) {
+function NavItem({ to, icon: Icon, label, collapsed, badge, onNavigate }) {
   const unreadCount = useAppStore((s) => s.unreadCount);
   return (
     <NavLink
       to={to}
+      onClick={onNavigate}
       className={({ isActive }) =>
-        `group relative flex items-center gap-3 transition-all duration-150 ${collapsed ? 'px-0 justify-center py-3' : 'px-5 py-2.5'} ${
+        `group relative flex items-center gap-3 transition-all duration-200 ${collapsed ? 'px-0 justify-center py-3' : 'px-5 py-2.5'} ${
           isActive
-            ? 'text-white bg-white/[0.04]'
-            : 'text-[#555] hover:text-on_surface hover:bg-white/[0.02]'
+            ? 'text-white bg-gradient-to-r from-cyan/[0.06] to-transparent'
+            : 'text-[#555] hover:text-on_surface hover:bg-white/[0.03]'
         }`
       }
     >
       {({ isActive }) => (
         <>
           {isActive && (
-            <span className="absolute left-0 top-[15%] bottom-[15%] w-[3px] rounded-r bg-cyan shadow-cyan-glow" />
+            <span className="absolute left-0 top-[10%] bottom-[10%] w-[3px] rounded-r"
+              style={{ background: 'linear-gradient(180deg, #06b6d4, #16ff9e)', boxShadow: '0 0 12px rgba(6,182,212,0.6), 0 0 4px rgba(22,255,158,0.3)' }} />
           )}
-          <Icon size={16} className={`shrink-0 transition-colors ${isActive ? 'text-cyan' : 'group-hover:text-cyan/60'}`} />
+          <Icon size={16} className={`shrink-0 transition-all duration-200 ${isActive ? 'text-cyan drop-shadow-[0_0_6px_rgba(6,182,212,0.5)]' : 'group-hover:text-cyan/70'}`} />
           {!collapsed && <span className="text-[13px] font-medium truncate">{label}</span>}
           {badge && unreadCount > 0 && (
             <span className={`${collapsed ? 'absolute top-1 right-1' : 'ml-auto'} min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-bold bg-primary text-white`}>
@@ -69,9 +71,10 @@ function SectionLabel({ text, collapsed }) {
   return <p className="void-label px-5 mb-1 mt-4">{text}</p>;
 }
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }) {
   const { sidebarCollapsed, setSidebarCollapsed } = useAppStore();
   const { open: mobileOpen, setOpen: setMobileOpen } = useContext(MobileMenuContext);
+  const handleNavigate = () => { setMobileOpen(false); onNavigate?.(); };
   const [isLive, setIsLive] = useState(true);
 
   useEffect(() => {
@@ -88,12 +91,12 @@ export default function Sidebar() {
       className={`shrink-0 h-full flex flex-col relative z-40 overflow-y-auto md:relative md:translate-x-0 fixed transition-transform duration-300 ${
         mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       }`}
-      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      style={{ background: 'rgba(6,6,8,0.88)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRight: '1px solid rgba(255,255,255,0.05)' }}
       onClick={() => { if (window.innerWidth < 768) setMobileOpen(false); }}
     >
       <div className={`flex items-center gap-3 py-5 ${sidebarCollapsed ? 'justify-center px-2' : 'px-5'}`}
            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="logo-hex shrink-0">
+        <div className="logo-hex shrink-0" style={{ boxShadow: '0 0 24px rgba(255,45,85,0.5), 0 0 48px rgba(255,45,85,0.15)' }}>
           <Shield size={14} color="#fff" strokeWidth={2.5} />
         </div>
         {!sidebarCollapsed && (
@@ -106,16 +109,17 @@ export default function Sidebar() {
 
       <nav className="flex-1 py-2">
         <SectionLabel text="Main" collapsed={sidebarCollapsed} />
-        {MAIN_NAV.map((item) => <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} />)}
+        {MAIN_NAV.map((item) => <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} onNavigate={handleNavigate} />)}
         <SectionLabel text="System" collapsed={sidebarCollapsed} />
-        {SYSTEM_NAV.map((item) => <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} />)}
+        {SYSTEM_NAV.map((item) => <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} onNavigate={handleNavigate} />)}
         <SectionLabel text="Account" collapsed={sidebarCollapsed} />
-        {ACCOUNT_NAV.map((item) => <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} />)}
+        {ACCOUNT_NAV.map((item) => <NavItem key={item.to} {...item} collapsed={sidebarCollapsed} onNavigate={handleNavigate} />)}
       </nav>
 
       <div className={`border-t border-white/[0.06] py-3 ${sidebarCollapsed ? 'px-2' : 'px-4'}`}>
         <div className={`flex items-center gap-2 ${sidebarCollapsed ? 'justify-center' : ''}`}>
-          <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-[#16ff9e] animate-pulse-green' : 'bg-red-500'}`} />
+          <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-[#16ff9e] animate-pulse-green' : 'bg-red-500'}`}
+            style={isLive ? { boxShadow: '0 0 8px rgba(22,255,158,0.6)' } : { boxShadow: '0 0 8px rgba(255,45,85,0.6)' }} />
           {!sidebarCollapsed && (
             <span className="text-[11px] font-semibold" style={{ color: isLive ? '#16ff9e' : '#ff2d55' }}>
               {isLive ? 'Live' : 'Offline'}

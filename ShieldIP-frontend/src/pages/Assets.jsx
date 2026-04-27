@@ -90,17 +90,17 @@ export default function Assets() {
   );
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-8 space-y-6 max-w-4xl">
-      <div className="flex items-end justify-between">
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-4xl">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <h1 className="font-display font-extrabold text-[26px] text-white tracking-tight flex items-center gap-3">
+          <h1 className="font-display font-extrabold text-[22px] sm:text-[26px] text-white tracking-tight text-glow-cyan flex items-center gap-3">
             <Fingerprint size={22} className="text-cyan" /> Asset Registry
           </h1>
           <p className="text-[13px] mt-1 text-[#555]">{assets.length} protected assets</p>
         </div>
       </div>
 
-      <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="gradient-border rounded-xl p-6">
         {!file ? (
           <div
             className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-4 text-center cursor-pointer transition-all ${dragging ? 'border-cyan bg-cyan/5' : 'border-white/10 hover:border-white/20'}`}
